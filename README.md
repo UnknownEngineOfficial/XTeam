@@ -6,7 +6,7 @@ XTeam ist eine Multi-Agent-Plattform zur KI-gestützten Softwareentwicklung. Zie
 
 ## Projektstruktur
 ```
-metagpt-platform/
+XTEAM/
 ├── frontend/                          # React + Vite Frontend
 │   ├── public/
 │   │   └── assets/
