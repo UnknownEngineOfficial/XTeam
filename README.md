@@ -227,3 +227,22 @@ metagpt-platform/
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Datenfluss-Beschreibung
+
+### User-Request Flow (↓)
+```
+Browser → NGINX → FastAPI → Services → Integration → MetaGPT Agents → LLM APIs
+```
+
+### Response Flow (↑)
+```
+Generated Code → Workspace → Streaming Handler → WebSocket → Browser (Real-time)
+```
+
+### Persistierung (↔)
+```
+FastAPI ↔ PostgreSQL (Metadata)
+FastAPI ↔ Redis (Queue/Cache)
+Integration ↔ File System (Generated Code)
+```
+
