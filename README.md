@@ -117,20 +117,20 @@ metagpt-platform/
 ```
 
 ## Technologie-Stack
-# Frontend
+### Frontend
 - React 18 + TypeScript
 - Vite (Build Tool)
 - Tailwind CSS
 - Monaco Editor (Code Viewer)
 - Websocket Client
 - Zustand (State Management)
-# Backend
+### Backend
 - FastAPI (Python 3.9+)
 - WebSocket Support
 - PostgreSQL (User/Project Data)
 - Redis (Task Queue)
 - JWT Authentication
-# MetaGPT Integration 
+### MetaGPT Integration 
 - MetaGPT Framework (Submodule)
 - Custom Agent Manager
 - Asynchrone Task Execution
