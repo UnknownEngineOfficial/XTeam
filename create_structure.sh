@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Create directories
+mkdir -p metagpt-platform/frontend/public/assets \
+metagpt-platform/frontend/src/components/chat \
+metagpt-platform/frontend/src/components/editor \
+metagpt-platform/frontend/src/components/preview \
+metagpt-platform/frontend/src/components/common \
+metagpt-platform/frontend/src/pages \
+metagpt-platform/frontend/src/hooks \
+metagpt-platform/frontend/src/services \
+metagpt-platform/frontend/src/store \
+metagpt-platform/frontend/src/types \
+metagpt-platform/frontend/src/utils \
+metagpt-platform/frontend/src/styles \
+metagpt-platform/backend/app/core \
+metagpt-platform/backend/app/api/v1 \
+metagpt-platform/backend/app/metagpt_integration \
+metagpt-platform/backend/app/models \
+metagpt-platform/backend/app/schemas \
+metagpt-platform/backend/app/services \
+metagpt-platform/backend/app/websocket \
+metagpt-platform/backend/metagpt \
+metagpt-platform/backend/workspaces \
+metagpt-platform/shared \
+metagpt-platform/docker \
+metagpt-platform/.github/workflows
+
+# Create files
+touch metagpt-platform/frontend/package.json \
+metagpt-platform/frontend/vite.config.ts \
+metagpt-platform/frontend/tsconfig.json \
+metagpt-platform/frontend/tailwind.config.js \
+metagpt-platform/frontend/src/App.tsx \
+metagpt-platform/frontend/src/main.tsx \
+metagpt-platform/frontend/src/styles/globals.css \
+metagpt-platform/frontend/src/components/chat/ChatInterface.tsx \
+metagpt-platform/frontend/src/components/chat/MessageList.tsx \
+metagpt-platform/frontend/src/components/chat/InputBar.tsx \
+metagpt-platform/frontend/src/components/editor/CodeEditor.tsx \
+metagpt-platform/frontend/src/components/editor/FileTree.tsx \
+metagpt-platform/frontend/src/components/editor/Terminal.tsx \
+metagpt-platform/frontend/src/components/preview/LivePreview.tsx \
+metagpt-platform/frontend/src/components/preview/PreviewControls.tsx \
+metagpt-platform/frontend/src/components/common/Button.tsx \
+metagpt-platform/frontend/src/components/common/Modal.tsx \
+metagpt-platform/frontend/src/components/common/Loader.tsx \
+metagpt-platform/frontend/src/pages/Dashboard.tsx \
+metagpt-platform/frontend/src/pages/ProjectView.tsx \
+metagpt-platform/frontend/src/pages/Auth.tsx \
+metagpt-platform/frontend/src/pages/Settings.tsx \
+metagpt-platform/frontend/src/hooks/useWebSocket.ts \
+metagpt-platform/frontend/src/hooks/useProject.ts \
+metagpt-platform/frontend/src/hooks/useAuth.ts \
+metagpt-platform/frontend/src/services/websocket.ts \
+metagpt-platform/frontend/src/services/api.ts \
+metagpt-platform/frontend/src/services/storage.ts \
+metagpt-platform/frontend/src/store/projectStore.ts \
+metagpt-platform/frontend/src/store/authStore.ts \
+metagpt-platform/frontend/src/store/uiStore.ts \
+metagpt-platform/frontend/src/types/project.ts \
+metagpt-platform/frontend/src/types/agent.ts \
+metagpt-platform/frontend/src/types/websocket.ts \
+metagpt-platform/frontend/src/utils/formatters.ts \
+metagpt-platform/frontend/src/utils/validators.ts \
+metagpt-platform/backend/requirements.txt \
+metagpt-platform/backend/Dockerfile \
+metagpt-platform/backend/pyproject.toml \
+metagpt-platform/backend/app/main.py \
+metagpt-platform/backend/app/core/config.py \
+metagpt-platform/backend/app/core/security.py \
+metagpt-platform/backend/app/core/database.py \
+metagpt-platform/backend/app/api/v1/auth.py \
+metagpt-platform/backend/app/api/v1/projects.py \
+metagpt-platform/backend/app/api/v1/agents.py \
+metagpt-platform/backend/app/api/v1/websocket.py \
+metagpt-platform/backend/app/api/deps.py \
+metagpt-platform/backend/app/metagpt_integration/agent_manager.py \
+metagpt-platform/backend/app/metagpt_integration/task_queue.py \
+metagpt-platform/backend/app/metagpt_integration/file_handler.py \
+metagpt-platform/backend/app/metagpt_integration/streaming.py \
+metagpt-platform/backend/app/models/user.py \
+metagpt-platform/backend/app/models/project.py \
+metagpt-platform/backend/app/models/execution.py \
+metagpt-platform/backend/app/schemas/user.py \
+metagpt-platform/backend/app/schemas/project.py \
+metagpt-platform/backend/app/schemas/websocket.py \
+metagpt-platform/backend/app/services/project_service.py \
+metagpt-platform/backend/app/services/agent_service.py \
+metagpt-platform/backend/app/services/deployment_service.py \
+metagpt-platform/backend/app/websocket/connection_manager.py \
+metagpt-platform/backend/app/websocket/message_handler.py \
+metagpt-platform/backend/app/websocket/broadcast.py \
+metagpt-platform/shared/types.ts \
+metagpt-platform/docker/docker-compose.yml \
+metagpt-platform/docker/frontend.Dockerfile \
+metagpt-platform/docker/backend.Dockerfile \
+metagpt-platform/.github/workflows/ci.yml \
+metagpt-platform/.github/workflows/deploy.yml
