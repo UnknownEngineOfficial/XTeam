@@ -124,7 +124,7 @@ class Project(Base):
         doc="Project requirements/specifications"
     )
 
-    metadata = Column(
+    project_metadata = Column(
         JSON,
         default=dict,
         nullable=False,
@@ -234,7 +234,7 @@ class Project(Base):
             "workspace_path": self.workspace_path,
             "repository_url": self.repository_url,
             "requirements": self.requirements,
-            "metadata": self.metadata,
+            "metadata": self.project_metadata,
             "progress": self.progress,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -298,9 +298,9 @@ class Project(Base):
         """
         self.status = ProjectStatus.FAILED
         if reason:
-            if not self.metadata:
-                self.metadata = {}
-            self.metadata["failure_reason"] = reason
+            if not self.project_metadata:
+                self.project_metadata = {}
+            self.project_metadata["failure_reason"] = reason
 
     def archive(self) -> None:
         """Archive project."""
@@ -339,9 +339,9 @@ class Project(Base):
             key: Metadata key
             value: Metadata value
         """
-        if not self.metadata:
-            self.metadata = {}
-        self.metadata[key] = value
+        if not self.project_metadata:
+            self.project_metadata = {}
+        self.project_metadata[key] = value
 
     def get_metadata(self, key: str, default=None):
         """
@@ -354,9 +354,9 @@ class Project(Base):
         Returns:
             Metadata value or default
         """
-        if not self.metadata:
+        if not self.project_metadata:
             return default
-        return self.metadata.get(key, default)
+        return self.project_metadata.get(key, default)
 
     @classmethod
     def from_dict(cls, data: dict, owner_id: str) -> "Project":

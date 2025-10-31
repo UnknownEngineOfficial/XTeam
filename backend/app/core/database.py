@@ -25,6 +25,17 @@ async_database_url = settings.database_url.replace(
     "postgresql://", "postgresql+asyncpg://"
 )
 
+# Create connect_args based on database type
+connect_args = {}
+if "postgresql" in async_database_url:
+    connect_args = {
+        "timeout": 10,
+        "command_timeout": 10,
+        "server_settings": {
+            "application_name": settings.app_name,
+        },
+    }
+
 # Create async engine with connection pooling
 engine = create_async_engine(
     async_database_url,
@@ -33,13 +44,7 @@ engine = create_async_engine(
     max_overflow=settings.database_max_overflow,
     pool_pre_ping=True,  # Test connections before using them
     pool_recycle=3600,  # Recycle connections after 1 hour
-    connect_args={
-        "timeout": 10,
-        "command_timeout": 10,
-        "server_settings": {
-            "application_name": settings.app_name,
-        },
-    },
+    connect_args=connect_args,
 )
 
 # ============================================================================

@@ -581,6 +581,10 @@ def get_connection_manager() -> ConnectionManager:
     return _connection_manager
 
 
+# Global instance for direct import
+connection_manager = get_connection_manager()
+
+
 async def close_connection_manager() -> None:
     """Close global connection manager instance."""
     global _connection_manager

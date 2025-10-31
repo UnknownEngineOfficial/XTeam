@@ -17,7 +17,7 @@ from app.models.project import Project
 from app.models.execution import Execution, ExecutionStatus, ExecutionType
 from app.models.agent_config import AgentRole
 from app.services.agent_service import AgentService, get_agent_service
-from app.metagpt_integration.llm_registry import get_llm_client_from_config
+from app.metagpt_integration.file_handler import get_file_handler
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,8 @@ class AgentManager:
         self.agent_service = get_agent_service(db)
         self.execution: Optional[Execution] = None
         self.agents: Dict[str, Any] = {}
+        self.streaming_handler = None
+        self.file_handler = get_file_handler()
         
         logger.info(f"Initialized AgentManager for project: {project.id}")
 
@@ -64,7 +66,13 @@ class AgentManager:
     # Agent Initialization
     # ========================================================================
 
-    async def initialize_agents(self) -> Dict[str, Any]:
+    async def initialize_streaming(self) -> None:
+        """
+        Initialize streaming handler for real-time updates.
+        """
+        if self.streaming_handler is None:
+            self.streaming_handler = await get_streaming_handler()
+            logger.info("Initialized streaming handler")
         """
         Initialize all agents with custom LLM configurations.
         
@@ -253,6 +261,9 @@ class AgentManager:
                 print(update)
         """
         try:
+            # Initialize streaming handler
+            await self.initialize_streaming()
+            
             # Create execution record
             execution = await self.create_execution(execution_type)
             
@@ -266,27 +277,42 @@ class AgentManager:
             await self.update_execution_status(ExecutionStatus.RUNNING)
             
             # Yield execution start event
-            yield {
+            start_event = {
                 "type": "execution_start",
                 "execution_id": str(execution.id),
                 "agents_count": len(self.agents),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield start_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="execution_start",
+                    data=start_event,
+                    source="agent_manager",
+                    execution_id=str(execution.id),
+                    project_id=str(self.project.id),
+                )
             
             # Run workflow stages
             workflow_output = {}
             
             # Stage 1: Product Manager - Requirements Analysis
-            yield from await self._run_product_manager_stage(prompt)
+            async for update in self._run_product_manager_stage(prompt):
+                yield update
             
             # Stage 2: Architect - System Design
-            yield from await self._run_architect_stage(prompt)
+            async for update in self._run_architect_stage(prompt):
+                yield update
             
             # Stage 3: Engineer - Code Generation
-            yield from await self._run_engineer_stage(prompt)
+            async for update in self._run_engineer_stage(prompt):
+                yield update
             
             # Stage 4: QA Engineer - Testing
-            yield from await self._run_qa_engineer_stage(prompt)
+            async for update in self._run_qa_engineer_stage(prompt):
+                yield update
             
             # Update project progress
             await self._update_project_progress(100.0)
@@ -296,13 +322,24 @@ class AgentManager:
             await self.set_execution_output(workflow_output)
             
             # Yield execution complete event
-            yield {
+            complete_event = {
                 "type": "execution_complete",
                 "execution_id": str(execution.id),
                 "status": "completed",
                 "output": workflow_output,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield complete_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="execution_complete",
+                    data=complete_event,
+                    source="agent_manager",
+                    execution_id=str(execution.id),
+                    project_id=str(self.project.id),
+                )
             
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
@@ -315,12 +352,23 @@ class AgentManager:
                 await self.db.commit()
             
             # Yield error event
-            yield {
+            error_event = {
                 "type": "error",
                 "error_code": "WORKFLOW_FAILED",
                 "error_message": str(e),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield error_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="error",
+                    data=error_event,
+                    source="agent_manager",
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
 
     # ========================================================================
     # Workflow Stages
@@ -351,12 +399,23 @@ class AgentManager:
             logger.info("Running Product Manager stage")
             
             # Yield stage start
-            yield {
+            start_event = {
                 "type": "stage_start",
                 "stage": "requirements_analysis",
                 "agent": agent_role,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield start_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="stage_start",
+                    data=start_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Generate requirements analysis
             analysis_prompt = f"""
@@ -386,12 +445,23 @@ class AgentManager:
             )
             
             # Yield agent message
-            yield {
+            message_event = {
                 "type": "agent_message",
                 "agent": agent_role,
                 "content": response,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield message_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="agent_message",
+                    data=message_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Update progress
             await self._update_project_progress(25.0)
@@ -429,12 +499,23 @@ class AgentManager:
             logger.info("Running Architect stage")
             
             # Yield stage start
-            yield {
+            start_event = {
                 "type": "stage_start",
                 "stage": "system_design",
                 "agent": agent_role,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield start_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="stage_start",
+                    data=start_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Generate system design
             design_prompt = f"""
@@ -465,12 +546,23 @@ class AgentManager:
             )
             
             # Yield agent message
-            yield {
+            message_event = {
                 "type": "agent_message",
                 "agent": agent_role,
                 "content": response,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield message_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="agent_message",
+                    data=message_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Update progress
             await self._update_project_progress(50.0)
@@ -508,12 +600,23 @@ class AgentManager:
             logger.info("Running Engineer stage")
             
             # Yield stage start
-            yield {
+            start_event = {
                 "type": "stage_start",
                 "stage": "code_generation",
                 "agent": agent_role,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield start_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="stage_start",
+                    data=start_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Generate code
             code_prompt = f"""
@@ -546,15 +649,26 @@ class AgentManager:
             )
             
             # Yield agent message
-            yield {
+            message_event = {
                 "type": "agent_message",
                 "agent": agent_role,
                 "content": response,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield message_event
             
-            # Update progress
-            await self._update_project_progress(75.0)
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="agent_message",
+                    data=message_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
+            
+            # Parse and create files from the response
+            await self._create_files_from_response(response, agent_role)
             
         except Exception as e:
             logger.error(f"Engineer stage failed: {e}")
@@ -589,12 +703,23 @@ class AgentManager:
             logger.info("Running QA Engineer stage")
             
             # Yield stage start
-            yield {
+            start_event = {
                 "type": "stage_start",
                 "stage": "testing",
                 "agent": agent_role,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield start_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="stage_start",
+                    data=start_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Generate tests
             test_prompt = f"""
@@ -625,12 +750,23 @@ class AgentManager:
             )
             
             # Yield agent message
-            yield {
+            message_event = {
                 "type": "agent_message",
                 "agent": agent_role,
                 "content": response,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
+            yield message_event
+            
+            # Emit to streaming handler
+            if self.streaming_handler:
+                await self.streaming_handler.emit(
+                    event_type="agent_message",
+                    data=message_event,
+                    source=agent_role,
+                    execution_id=str(self.execution.id) if self.execution else None,
+                    project_id=str(self.project.id),
+                )
             
             # Update progress
             await self._update_project_progress(90.0)
@@ -664,13 +800,55 @@ class AgentManager:
         except Exception as e:
             logger.error(f"Failed to update project progress: {e}")
 
-    async def cancel_execution(self) -> None:
-        """Cancel the current execution."""
-        if self.execution:
-            self.execution.cancel()
-            self.db.add(self.execution)
-            await self.db.commit()
-            logger.info("Execution cancelled")
+    async def _create_files_from_response(
+        self,
+        response: str,
+        agent_role: str,
+    ) -> None:
+        """
+        Parse response and create files in the project workspace.
+        
+        Args:
+            response: LLM response containing file content
+            agent_role: Role of the agent that generated the response
+        """
+        try:
+            # Simple file extraction - look for code blocks with file paths
+            import re
+            
+            # Pattern to match file paths in markdown code blocks
+            file_pattern = r'```(?:\w+)?\s*(\S+)\n(.*?)\n```'
+            matches = re.findall(file_pattern, response, re.DOTALL)
+            
+            for file_path, content in matches:
+                try:
+                    # Create file in workspace
+                    full_path = self.file_handler.write_file(
+                        str(self.project.id),
+                        file_path,
+                        content.strip(),
+                    )
+                    
+                    # Emit file creation event
+                    if self.streaming_handler:
+                        await self.streaming_handler.emit(
+                            event_type="file_created",
+                            data={
+                                "file_path": file_path,
+                                "size": len(content),
+                            },
+                            source=agent_role,
+                            execution_id=str(self.execution.id) if self.execution else None,
+                            project_id=str(self.project.id),
+                        )
+                    
+                    logger.info(f"Created file: {full_path}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to create file {file_path}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to parse files from response: {e}")
 
     async def retry_execution(self) -> bool:
         """

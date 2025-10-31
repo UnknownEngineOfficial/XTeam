@@ -717,3 +717,132 @@ async def health_check() -> dict:
         GET /api/v1/projects/health
     """
     return {"status": "healthy", "service": "projects"}
+
+
+# ============================================================================
+# Execute Workflow Endpoint
+# ============================================================================
+
+@router.post(
+    "/{project_id}/execute",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+    summary="Execute workflow",
+    description="Execute a MetaGPT workflow for the project",
+)
+async def execute_workflow(
+    project_id: str,
+    prompt: str = Query(..., description="Project requirements/prompt"),
+    execution_type: str = Query("full", description="Execution type (full, incremental)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Execute a MetaGPT workflow for a project.
+    
+    This endpoint starts a MetaGPT workflow execution with all configured agents.
+    The workflow runs asynchronously and streams updates via WebSocket.
+    
+    Args:
+        project_id: Project ID
+        prompt: Project requirements/prompt
+        execution_type: Type of execution (full, incremental)
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        dict: Execution details with execution ID
+        
+    Raises:
+        HTTPException: 404 Not Found if project not found
+        HTTPException: 403 Forbidden if user is not the owner
+        HTTPException: 400 Bad Request if execution fails
+        
+    Example:
+        POST /api/v1/projects/550e8400-e29b-41d4-a716-446655440000/execute?prompt=Build%20a%20REST%20API&execution_type=full
+    """
+    try:
+        from app.models.execution import ExecutionType
+        from app.metagpt_integration.agent_manager import get_agent_manager
+        from app.metagpt_integration.streaming import get_streaming_handler
+        
+        # Verify project exists and user has access
+        service = get_project_service(db)
+        project = await service.get_project_by_owner(project_id, str(current_user.id))
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+        
+        # Parse execution type
+        try:
+            exec_type = ExecutionType(execution_type.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid execution type: {execution_type}",
+            )
+        
+        # Get streaming handler for real-time updates
+        streaming_handler = await get_streaming_handler()
+        
+        # Create agent manager
+        agent_manager = await get_agent_manager(db, project, str(current_user.id))
+        
+        # Start workflow execution in background
+        async def run_workflow():
+            try:
+                # Subscribe to streaming events for this execution
+                subscriber_id = f"execution_{project_id}"
+                await streaming_handler.subscribe(
+                    subscriber_id=subscriber_id,
+                    callback=lambda event: None,  # WebSocket will handle this
+                    event_filter=None,
+                )
+                
+                # Execute workflow
+                async for update in agent_manager.run_workflow(prompt, exec_type):
+                    # Emit event to streaming handler
+                    await streaming_handler.emit(
+                        event_type=update.get("type", "unknown"),
+                        data=update,
+                        source="workflow",
+                        execution_id=update.get("execution_id"),
+                        project_id=project_id,
+                    )
+                    
+                    # Yield update for potential future use
+                    yield update
+                
+                # Unsubscribe from streaming
+                await streaming_handler.unsubscribe(subscriber_id)
+                
+            except Exception as e:
+                logger.error(f"Workflow execution failed: {e}")
+                await streaming_handler.emit(
+                    event_type="error",
+                    data={"error": str(e)},
+                    source="workflow",
+                    project_id=project_id,
+                )
+        
+        # Start background task
+        import asyncio
+        asyncio.create_task(run_workflow())
+        
+        return {
+            "message": "Workflow execution started",
+            "project_id": project_id,
+            "execution_type": execution_type,
+            "status": "running",
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to start workflow execution: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start workflow execution",
+        )

@@ -312,3 +312,32 @@ def generate_secure_random_string(length: int = 32) -> str:
     """
     import secrets
     return secrets.token_urlsafe(length)
+
+
+async def get_current_user_optional(token: str, db_session) -> Optional[Dict[str, Any]]:
+    """
+    Get current user from token if valid, otherwise return None.
+    
+    Args:
+        token: JWT token string
+        db_session: Database session (needed for user lookup)
+        
+    Returns:
+        Optional[Dict[str, Any]]: User data if token is valid, None otherwise
+    """
+    if not token:
+        return None
+    
+    # Verify and decode token
+    payload = verify_token(token)
+    if not payload:
+        return None
+    
+    # Extract user ID from token
+    user_id: str = payload.get("sub")
+    if not user_id:
+        return None
+    
+    # For now, just return the user_id since we don't have db access here
+    # In a real implementation, you'd look up the user in the database
+    return {"id": user_id, "is_authenticated": True}

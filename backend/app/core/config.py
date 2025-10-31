@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     # Database Configuration
     # ========================================================================
     database_url: str = Field(
-        default="postgresql://xteam_user:xteam_password@localhost:5432/xteam_db",
-        description="PostgreSQL database URL"
+        default="sqlite+aiosqlite:///./xteam.db",
+        description="Database URL (SQLite for development)"
     )
     database_echo: bool = Field(default=False, description="Echo SQL queries")
     database_pool_size: int = Field(default=20, description="Database connection pool size")

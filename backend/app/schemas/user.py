@@ -28,7 +28,7 @@ class UserCreate(BaseModel):
         ...,
         min_length=3,
         max_length=50,
-        regex="^[a-zA-Z0-9_-]+$",
+        pattern="^[a-zA-Z0-9_-]+$",
         description="Username (3-50 chars, alphanumeric, underscore, hyphen)"
     )
     password: str = Field(

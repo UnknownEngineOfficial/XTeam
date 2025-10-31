@@ -177,7 +177,7 @@ class Execution(Base):
     # Metadata
     # ========================================================================
 
-    metadata = Column(
+    execution_metadata = Column(
         JSONB,
         default=dict,
         nullable=False,
@@ -252,7 +252,7 @@ class Execution(Base):
             "duration_seconds": self.duration_seconds,
             "retry_count": self.retry_count,
             "max_retries": self.max_retries,
-            "metadata": self.metadata,
+            "metadata": self.execution_metadata,
         }
         
         if include_logs:
@@ -420,9 +420,9 @@ class Execution(Base):
             key: Metadata key
             value: Metadata value
         """
-        if not self.metadata:
-            self.metadata = {}
-        self.metadata[key] = value
+        if not self.execution_metadata:
+            self.execution_metadata = {}
+        self.execution_metadata[key] = value
 
     def get_metadata(self, key: str, default: Any = None) -> Any:
         """
@@ -435,9 +435,9 @@ class Execution(Base):
         Returns:
             Metadata value or default
         """
-        if not self.metadata:
+        if not self.execution_metadata:
             return default
-        return self.metadata.get(key, default)
+        return self.execution_metadata.get(key, default)
 
     def _calculate_duration(self) -> None:
         """Calculate and update execution duration."""
