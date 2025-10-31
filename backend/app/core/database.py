@@ -20,59 +20,47 @@ from app.core.config import settings
 # Database Engine Configuration
 # ============================================================================
 
-"""
-Create async engine with safe options depending on the database scheme.
-
-Notes:
-- For PostgreSQL we convert the scheme to asyncpg and enable pool sizing
-  options and server settings.
-- For SQLite (aiosqlite) we avoid pool sizing parameters because aiosqlite
-  does not support the same pooling semantics. Using pool defaults or
-  NullPool avoids errors on engine creation.
-"""
-
-# Normalize URL for async drivers where appropriate
+# Convert PostgreSQL URL to async format
 async_database_url = settings.database_url
-connect_args = {}
-engine_kwargs = {
-    "echo": settings.database_echo,
-}
-
 if async_database_url.startswith("postgresql://"):
-    # Use asyncpg dialect for PostgreSQL URLs
-    async_database_url = async_database_url.replace(
-        "postgresql://", "postgresql+asyncpg://"
+    async_database_url = async_database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# Create connect_args based on database type
+connect_args = {}
+
+# Create async engine with sensible defaults per DB backend
+if "sqlite" in async_database_url:
+    # aiosqlite does not support typical SQLAlchemy pool sizing.
+    # Use NullPool to avoid connection pooling issues in development.
+    connect_args = {"timeout": 30}
+    engine = create_async_engine(
+        async_database_url,
+        echo=settings.database_echo,
+        connect_args=connect_args,
+        poolclass=NullPool,
     )
+elif "postgresql+asyncpg" in async_database_url or "postgresql+" in async_database_url:
+    # PostgreSQL (asyncpg) — enable pooling and server settings
     connect_args = {
         "timeout": 10,
         "command_timeout": 10,
         "server_settings": {"application_name": settings.app_name},
     }
-    engine_kwargs.update(
-        {
-            "pool_size": settings.database_pool_size,
-            "max_overflow": settings.database_max_overflow,
-            "pool_pre_ping": True,
-            "pool_recycle": 3600,
-        }
+    engine = create_async_engine(
+        async_database_url,
+        echo=settings.database_echo,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        connect_args=connect_args,
     )
-elif async_database_url.startswith("sqlite"):
-    # Keep aiosqlite URL as-is and avoid pool sizing options which are
-    # incompatible with the sqlite async driver. Use NullPool semantics by
-    # not specifying pool_size/max_overflow.
-    # Optionally, users can set a different DB URL (postgresql) in production.
-    pass
 else:
-    # For other DBs (e.g., explicit async URLs) try to keep defaults but
-    # avoid forcing pool params unless the URL indicates PostgreSQL async.
-    pass
-
-# Attach connect_args if present
-if connect_args:
-    engine_kwargs["connect_args"] = connect_args
-
-# Finally create the engine with the assembled kwargs
-engine = create_async_engine(async_database_url, **engine_kwargs)
+    # Fallback generic engine creation
+    engine = create_async_engine(
+        async_database_url,
+        echo=settings.database_echo,
+    )
 
 # ============================================================================
 # Session Factory
