@@ -88,15 +88,29 @@ class WebSocketService {
           this.handlers.onExecutionUpdate?.(message);
         });
 
-        this.socket.on('file_update', (message: WebSocketMessage) => {
-          console.log('File update:', message);
-          this.handlers.onFileUpdate?.(message);
+        this.socket.on('execution_start', (message: WebSocketMessage) => {
+          console.log('Execution start:', message);
+          this.handlers.onExecutionStart?.(message);
         });
 
-        // Error handling
-        this.socket.on('error', (error: any) => {
-          console.error('WebSocket error:', error);
-          this.handlers.onError?.(error);
+        this.socket.on('execution_complete', (message: WebSocketMessage) => {
+          console.log('Execution complete:', message);
+          this.handlers.onExecutionComplete?.(message);
+        });
+
+        this.socket.on('stage_start', (message: WebSocketMessage) => {
+          console.log('Stage start:', message);
+          this.handlers.onStageStart?.(message);
+        });
+
+        this.socket.on('file_created', (message: WebSocketMessage) => {
+          console.log('File created:', message);
+          this.handlers.onFileCreated?.(message);
+        });
+
+        this.socket.on('error', (message: WebSocketMessage) => {
+          console.log('Workflow error:', message);
+          this.handlers.onWorkflowError?.(message);
         });
 
       } catch (error) {

@@ -26,6 +26,7 @@ const ChatInterface: React.FC = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // WebSocket integration
@@ -131,27 +132,71 @@ const ChatInterface: React.FC = () => {
     setInputMessage('');
     setIsTyping(true);
 
-    // Send message via WebSocket
-    try {
-      sendAgentCommand('process_message', {
-        content: userMessage.content,
-        timestamp: userMessage.timestamp.toISOString(),
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      setIsTyping(false);
-      // Fallback to mock response
-      setTimeout(() => {
-        const agentMessage: Message = {
+    // Check if this looks like a project description that should trigger workflow
+    const isProjectDescription = inputMessage.length > 50 && 
+      (inputMessage.toLowerCase().includes('projekt') || 
+       inputMessage.toLowerCase().includes('build') || 
+       inputMessage.toLowerCase().includes('create') ||
+       inputMessage.toLowerCase().includes('develop'));
+
+    if (isProjectDescription && currentProjectId) {
+      // Start workflow execution
+      try {
+        await startWorkflow(inputMessage);
+      } catch (error) {
+        console.error('Failed to start workflow:', error);
+        const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          content: `Ich habe deine Anfrage erhalten: "${userMessage.content}". Ich werde jetzt mit der Analyse beginnen und dir gleich ein Update geben.`,
-          sender: 'agent',
+          content: '❌ Fehler beim Starten des Workflows. Bitte versuche es erneut.',
+          sender: 'system',
           timestamp: new Date(),
-          agent: 'Product Manager',
+          type: 'error',
         };
-        setMessages(prev => [...prev, agentMessage]);
+        setMessages(prev => [...prev, errorMessage]);
         setIsTyping(false);
-      }, 2000);
+      }
+    } else {
+      // Send regular message via WebSocket
+      try {
+        sendAgentCommand('process_message', {
+          content: userMessage.content,
+          timestamp: userMessage.timestamp.toISOString(),
+        });
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        setIsTyping(false);
+        // Fallback to mock response
+        setTimeout(() => {
+          const agentMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: `Ich habe deine Anfrage erhalten: "${userMessage.content}". Ich werde jetzt mit der Analyse beginnen und dir gleich ein Update geben.`,
+            sender: 'agent',
+            timestamp: new Date(),
+            agent: 'Product Manager',
+          };
+          setMessages(prev => [...prev, agentMessage]);
+          setIsTyping(false);
+        }, 2000);
+      }
+    }
+  };
+
+  const startWorkflow = async (prompt: string) => {
+    if (!currentProjectId) {
+      throw new Error('No project selected');
+    }
+
+    try {
+      const response = await projectsApi.executeWorkflow(currentProjectId, {
+        prompt,
+        execution_type: 'full',
+      });
+
+      // Workflow started successfully - messages will come via WebSocket
+      console.log('Workflow started:', response);
+    } catch (error) {
+      console.error('Failed to start workflow:', error);
+      throw error;
     }
   };
 
@@ -175,6 +220,8 @@ const ChatInterface: React.FC = () => {
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                 message.sender === 'user'
                   ? 'bg-blue-600 text-white'
+                  : message.sender === 'system'
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
@@ -183,6 +230,14 @@ const ChatInterface: React.FC = () => {
                   <Bot className="w-4 h-4 mr-1" />
                   <span className="text-xs font-medium text-gray-600">
                     {message.agent}
+                  </span>
+                </div>
+              )}
+              {message.sender === 'system' && (
+                <div className="flex items-center mb-1">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  <span className="text-xs font-medium text-yellow-700">
+                    System
                   </span>
                 </div>
               )}
@@ -196,7 +251,11 @@ const ChatInterface: React.FC = () => {
               )}
               <p className="text-sm">{message.content}</p>
               <p className={`text-xs mt-1 ${
-                message.sender === 'user' ? 'text-blue-200' : 'text-gray-500'
+                message.sender === 'user' 
+                  ? 'text-blue-200' 
+                  : message.sender === 'system'
+                  ? 'text-yellow-600'
+                  : 'text-gray-500'
               }`}>
                 {message.timestamp.toLocaleTimeString('de-DE', {
                   hour: '2-digit',
