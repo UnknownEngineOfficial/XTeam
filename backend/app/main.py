@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting XTeam Backend...")
 
     # Startup: Create database tables
-    # await init_db()
+    await init_db()
 
     logger.info("Database tables created/verified")
     logger.info("XTeam Backend started successfully")

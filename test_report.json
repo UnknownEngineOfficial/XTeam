@@ -1,0 +1,43 @@
+{
+  "timestamp": 1761929364.178248,
+  "test_summary": {
+    "total_tests": 8,
+    "passed_tests": 1,
+    "failed_tests": 7,
+    "success_rate": "12.5%"
+  },
+  "test_results": {
+    "backend_health": true,
+    "frontend_accessible": false,
+    "authentication": false,
+    "project_management": false,
+    "agent_configuration": false,
+    "workflow_execution": false,
+    "websocket_communication": false,
+    "end_to_end": false
+  },
+  "system_info": {
+    "backend_url": "http://localhost:8000",
+    "frontend_url": "http://localhost:3000",
+    "websocket_url": "ws://localhost:8000/ws",
+    "test_user": "test@example.com"
+  },
+  "recommendations": [
+    "\ud83d\udd27 Fix frontend build or development server issues",
+    "\ud83d\udd27 Implement or fix authentication endpoints",
+    "\ud83d\udd27 Complete project management API implementation",
+    "\ud83d\udd27 Implement agent configuration management",
+    "\ud83d\udd27 Fix MetaGPT workflow execution",
+    "\ud83d\udd27 Implement WebSocket real-time communication",
+    "\ud83d\udd27 Fix integration issues between frontend and backend"
+  ],
+  "issues_found": [
+    "\u274c Frontend Accessible functionality not working",
+    "\u274c Authentication functionality not working",
+    "\u274c Project Management functionality not working",
+    "\u274c Agent Configuration functionality not working",
+    "\u274c Workflow Execution functionality not working",
+    "\u274c Websocket Communication functionality not working",
+    "\u274c End To End functionality not working"
+  ]
+}

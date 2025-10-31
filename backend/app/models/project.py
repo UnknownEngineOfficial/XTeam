@@ -7,7 +7,6 @@ This module defines the Project ORM model for database persistence.
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy import Column, String, Text, DateTime, Index, ForeignKey, Enum, Float
-from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 import uuid
 import enum
@@ -53,9 +52,9 @@ class Project(Base):
     # ========================================================================
 
     id = Column(
-        UUID(as_uuid=True),
+        String,
         primary_key=True,
-        default=uuid.uuid4,
+        default=lambda: str(uuid.uuid4()),
         nullable=False,
         doc="Unique project identifier"
     )
@@ -65,7 +64,7 @@ class Project(Base):
     # ========================================================================
 
     owner_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -125,8 +124,8 @@ class Project(Base):
     )
 
     project_metadata = Column(
-        JSON,
-        default=dict,
+        Text,
+        default="{}",
         nullable=False,
         doc="Additional project metadata"
     )

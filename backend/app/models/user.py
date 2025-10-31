@@ -7,7 +7,6 @@ This module defines the User ORM model for database persistence.
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy import Column, String, Boolean, DateTime, Index, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -40,9 +39,9 @@ class User(Base):
     # ========================================================================
 
     id = Column(
-        UUID(as_uuid=True),
+        String,
         primary_key=True,
-        default=uuid.uuid4,
+        default=lambda: str(uuid.uuid4()),
         nullable=False,
         doc="Unique user identifier"
     )

@@ -7,7 +7,7 @@ This module defines the Execution ORM model for tracking project executions.
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy import Column, String, Text, DateTime, Index, ForeignKey, Enum, Float, Integer
-from sqlalchemy.dialects.postgresql import UUID, JSON, JSONB
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 import uuid
 import enum
@@ -61,9 +61,9 @@ class Execution(Base):
     # ========================================================================
 
     id = Column(
-        UUID(as_uuid=True),
+        String,
         primary_key=True,
-        default=uuid.uuid4,
+        default=lambda: str(uuid.uuid4()),
         nullable=False,
         doc="Unique execution identifier"
     )
@@ -73,7 +73,7 @@ class Execution(Base):
     # ========================================================================
 
     project_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -81,7 +81,7 @@ class Execution(Base):
     )
 
     user_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -112,15 +112,15 @@ class Execution(Base):
     # ========================================================================
 
     agent_logs = Column(
-        JSONB,
-        default=list,
+        Text,
+        default="[]",
         nullable=False,
         doc="Detailed logs from agent execution"
     )
 
     output = Column(
-        JSONB,
-        default=dict,
+        Text,
+        default="{}",
         nullable=False,
         doc="Execution output/results"
     )
@@ -178,8 +178,8 @@ class Execution(Base):
     # ========================================================================
 
     execution_metadata = Column(
-        JSONB,
-        default=dict,
+        Text,
+        default="{}",
         nullable=False,
         doc="Additional execution metadata"
     )

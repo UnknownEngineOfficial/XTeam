@@ -7,7 +7,6 @@ This module defines the AgentConfig ORM model for managing per-agent LLM setting
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy import Column, String, Text, DateTime, Index, ForeignKey, Enum, Boolean, Float
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
 import enum
@@ -69,9 +68,9 @@ class AgentConfig(Base):
     # ========================================================================
 
     id = Column(
-        UUID(as_uuid=True),
+        String,
         primary_key=True,
-        default=uuid.uuid4,
+        default=lambda: str(uuid.uuid4()),
         nullable=False,
         doc="Unique configuration identifier"
     )
@@ -81,7 +80,7 @@ class AgentConfig(Base):
     # ========================================================================
 
     user_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -166,8 +165,8 @@ class AgentConfig(Base):
     # ========================================================================
 
     parameters = Column(
-        JSONB,
-        default=dict,
+        Text,
+        default="{}",
         nullable=False,
         doc="Additional provider-specific parameters"
     )
