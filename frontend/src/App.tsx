@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -7,9 +6,6 @@ import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import Auth from './pages/Auth';
 import Settings from './pages/Settings';
-
-// Components
-import Loader from './components/common/Loader';
 
 // Styles
 import './styles/globals.css';

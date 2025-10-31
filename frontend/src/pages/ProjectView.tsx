@@ -7,7 +7,6 @@ import {
   Square,
   Settings,
   Code,
-  FileText,
   Terminal,
   Eye,
   MessageSquare
@@ -29,9 +28,6 @@ const ProjectView: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [fileContent, setFileContent] = useState<string>('// Welcome to XTeam Code Editor\n// Start coding your project here!');
-  const [htmlContent, setHtmlContent] = useState<string>('<h1>Hello, World!</h1>');
-  const [cssContent, setCssContent] = useState<string>('body { font-family: Arial, sans-serif; }');
-  const [jsContent, setJsContent] = useState<string>('console.log("Hello from XTeam!");');
 
   // Mock project data - später durch echte API ersetzen
   useEffect(() => {
@@ -210,9 +206,9 @@ const ProjectView: React.FC = () => {
             )}
             {activeTab === 'preview' && (
               <LivePreview
-                html={htmlContent}
-                css={cssContent}
-                js={jsContent}
+                html={'<h1>Hello, World!</h1>'}
+                css={'body { font-family: Arial, sans-serif; }'}
+                js={'console.log("Hello from XTeam!");'}
               />
             )}
             {activeTab === 'terminal' && (

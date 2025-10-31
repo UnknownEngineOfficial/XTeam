@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Play, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, AlertCircle } from 'lucide-react';
 import Button from '../common/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { projectsApi, ExecuteWorkflowRequest } from '../../services/api';
+import { projectsApi } from '../../services/api';
 
 interface Message {
   id: string;
@@ -26,11 +26,11 @@ const ChatInterface: React.FC = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProjectId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // WebSocket integration
-  const { sendAgentCommand, isConnected } = useWebSocket({
+  const { sendAgentCommand } = useWebSocket({
     autoConnect: true,
     onAgentMessage: (message) => {
       const agentMessage: Message = {
