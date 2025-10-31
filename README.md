@@ -4,6 +4,8 @@ Multi-Agent-Platform
 ## Beschreibung
 XTeam ist eine Multi-Agent-Plattform zur KI-gestützten Softwareentwicklung. Ziel ist es, komplexe Entwicklungsprojekte automatisiert und kollaborativ zu bearbeiten, von der Anforderung bis zum fertigen Code.
 
+Ziel ein erweitertes MGX MetaGPT X.
+
 ## Projektstruktur
 ```
 XTEAM/
