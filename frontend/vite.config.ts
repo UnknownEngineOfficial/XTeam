@@ -17,4 +17,12 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    // Ensure preview uses the same port expected by tests/CI
+    port: 3000,
+  },
+  build: {
+    // Enable source maps for easier debugging of production bundles
+    sourcemap: true,
+  },
 })
