@@ -11,10 +11,14 @@ Use this checklist before deploying XTeam to production.
 - [ ] Set `DEBUG=false` in production
 - [ ] Review and restrict `CORS_ALLOW_METHODS` and `CORS_ALLOW_HEADERS`
 - [ ] Enable rate limiting (`rate_limit_enabled=true`)
+- [ ] Configure rate limit per minute (`rate_limit_requests_per_minute`)
+- [ ] Enable token blacklist with Redis for logout/revocation
 - [ ] Store secrets in secure secret management (AWS Secrets Manager, Azure Key Vault, etc.)
 - [ ] Ensure API keys (OpenAI, etc.) are never committed to git
 - [ ] Review and update `TrustedHostMiddleware` allowed hosts
 - [ ] Enable and configure Sentry for error tracking (`SENTRY_DSN`)
+- [ ] Review WebSocket authentication requirements
+- [ ] Reduce access token expiration time for enhanced security (default: 30 min)
 
 ## Database
 
@@ -32,20 +36,23 @@ Use this checklist before deploying XTeam to production.
 - [ ] Use Redis with persistence enabled
 - [ ] Set up Redis backups
 - [ ] Configure Redis password protection
-- [ ] Use separate Redis instances/databases for different purposes (cache, queue, sessions)
+- [ ] Use separate Redis instances/databases for different purposes (cache, queue, sessions, token blacklist)
 - [ ] Consider Redis Cluster for high availability
+- [ ] Configure Redis memory limits and eviction policies
+- [ ] Monitor Redis memory usage and connection count
 
 ## Infrastructure
 
 - [ ] Use a production-grade container orchestration (Kubernetes, ECS, etc.)
 - [ ] Set up load balancing
 - [ ] Configure auto-scaling based on metrics
-- [ ] Set up health checks and readiness probes
+- [ ] Set up health checks (`/healthz`) and readiness probes (`/readyz`)
 - [ ] Configure resource limits (CPU, memory) for containers
 - [ ] Set up monitoring and alerting (Prometheus, Grafana, CloudWatch, etc.)
-- [ ] Configure log aggregation (ELK stack, CloudWatch Logs, etc.)
+- [ ] Configure structured JSON log aggregation (ELK stack, CloudWatch Logs, etc.)
 - [ ] Set up CDN for frontend assets (CloudFront, Cloudflare, etc.)
 - [ ] Configure DNS with proper TTL values
+- [ ] Enable distributed tracing with request IDs
 
 ## Application Configuration
 
@@ -70,13 +77,17 @@ Use this checklist before deploying XTeam to production.
 
 ## CI/CD
 
-- [ ] Set up automated testing in CI pipeline
-- [ ] Configure automated security scanning (Snyk, Dependabot, etc.)
+- [ ] Set up automated testing in CI pipeline with coverage threshold
+- [ ] Configure automated security scanning (pip-audit, Trivy, Snyk, Dependabot, etc.)
 - [ ] Set up automated Docker image building
-- [ ] Configure image vulnerability scanning
+- [ ] Configure image vulnerability scanning with Trivy
+- [ ] Run Alembic migration checks in CI
 - [ ] Implement blue-green or canary deployments
+- [ ] Set up staging environment with migration gates
+- [ ] Set up production environment with manual approval
 - [ ] Set up rollback procedures
 - [ ] Test deployment pipeline in staging environment
+- [ ] Configure smoke tests for post-deployment validation
 
 ## Monitoring & Observability
 
@@ -85,9 +96,14 @@ Use this checklist before deploying XTeam to production.
 - [ ] Set up uptime monitoring (Pingdom, UptimeRobot, etc.)
 - [ ] Configure alerting for critical metrics
 - [ ] Set up dashboard for key metrics
-- [ ] Enable distributed tracing if microservices
+- [ ] Enable distributed tracing with request IDs
 - [ ] Monitor API rate limits and quotas
 - [ ] Track and alert on high error rates
+- [ ] Monitor `/healthz` and `/readyz` endpoint responses
+- [ ] Set up log parsing for structured JSON logs
+- [ ] Configure alerts for 5xx errors and high latency
+- [ ] Monitor Redis connection health and memory usage
+- [ ] Track token blacklist size and operations
 
 ## Performance
 
