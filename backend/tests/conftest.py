@@ -87,8 +87,11 @@ async def client(test_db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     
     app.dependency_overrides[get_db] = override_get_db
     
-    # Create test client
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    # Create test client with transport
+    from httpx import ASGITransport
+    transport = ASGITransport(app=app)
+    
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     
     # Cleanup
@@ -102,13 +105,13 @@ async def client(test_db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 @pytest.fixture
 async def test_user(test_db: AsyncSession) -> User:
     """Create a test user."""
-    from app.core.security import get_password_hash
+    from app.core.security import hash_password
     
     user = User(
         email="test@example.com",
         username="testuser",
         full_name="Test User",
-        hashed_password=get_password_hash("testpassword"),
+        hashed_password=hash_password("testpassword"),
         is_active=True,
         is_superuser=False,
     )
@@ -121,13 +124,13 @@ async def test_user(test_db: AsyncSession) -> User:
 @pytest.fixture
 async def test_superuser(test_db: AsyncSession) -> User:
     """Create a test superuser."""
-    from app.core.security import get_password_hash
+    from app.core.security import hash_password
     
     user = User(
         email="admin@example.com",
         username="admin",
         full_name="Admin User",
-        hashed_password=get_password_hash("adminpassword"),
+        hashed_password=hash_password("adminpassword"),
         is_active=True,
         is_superuser=True,
     )

@@ -6,9 +6,11 @@ registration, login, token refresh, and profile management.
 """
 
 from datetime import timedelta
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -33,6 +35,9 @@ from app.schemas.user import (
     ErrorResponse,
 )
 from app.api.deps import get_current_user, get_current_active_user
+
+# Security scheme
+security = HTTPBearer(auto_error=False)
 
 # ============================================================================
 # Router Configuration
