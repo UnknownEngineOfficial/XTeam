@@ -5,6 +5,8 @@ This module defines FastAPI dependency functions for authentication, database ac
 and other common request requirements.
 """
 
+import time
+import threading
 from typing import Optional, Generator, AsyncGenerator
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -475,7 +477,6 @@ class RateLimitStore:
             cls._instance = super().__new__(cls)
             cls._instance._store = {}
             # Use threading.Lock for thread safety
-            import threading
             cls._lock = threading.Lock()
         return cls._instance
     
@@ -523,8 +524,6 @@ async def check_rate_limit(
         ):
             # This endpoint is rate limited
     """
-    import time
-    
     # Get rate limit store (singleton)
     rate_store = RateLimitStore()
     

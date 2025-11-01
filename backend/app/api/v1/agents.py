@@ -32,6 +32,19 @@ from app.services.agent_service import AgentService, get_agent_service
 from app.api.deps import get_current_user
 
 # ============================================================================
+# Module Constants
+# ============================================================================
+
+# Provider-to-API-key setting mapping
+# Maps LLM provider names to their corresponding settings attribute names
+PROVIDER_API_KEY_SETTINGS = {
+    "openai": "openai_api_key",
+    "azure_openai": "azure_openai_api_key",
+    "groq": "groq_api_key",
+    "ollama": "",  # Ollama doesn't need an API key
+}
+
+# ============================================================================
 # Router Configuration
 # ============================================================================
 
@@ -765,16 +778,15 @@ async def test_config(
         import time
         
         try:
-            # Provider-to-API-key mapping
-            provider_api_keys = {
-                "openai": getattr(settings, "openai_api_key", ""),
-                "azure_openai": getattr(settings, "azure_openai_api_key", ""),
-                "groq": getattr(settings, "groq_api_key", ""),
-                "ollama": "",  # Ollama doesn't need an API key
-            }
+            # Get API key from settings using module constant mapping
+            from app.core.config import settings
+            import time
             
             provider = config.llm_provider.value
-            api_key = provider_api_keys.get(provider, "")
+            api_key_setting = PROVIDER_API_KEY_SETTINGS.get(provider, "")
+            
+            # Get API key from settings if setting name is provided
+            api_key = getattr(settings, api_key_setting, "") if api_key_setting else ""
             
             if not api_key and provider != "ollama":
                 return TestConfigResponse(

@@ -399,7 +399,7 @@ class MessageHandler:
                 )
             
             # Check if execution can be paused
-            if execution.status not in [ExecutionStatus.RUNNING, ExecutionStatus.PENDING]:
+            if execution.status not in Execution.PAUSABLE_STATUSES:
                 return MessageResponse(
                     success=False,
                     message_type=MessageType.PAUSE_EXECUTION.value,
@@ -465,7 +465,7 @@ class MessageHandler:
                 )
             
             # Check if execution can be resumed
-            if execution.status != ExecutionStatus.PAUSED:
+            if execution.status not in Execution.RESUMABLE_STATUSES:
                 return MessageResponse(
                     success=False,
                     message_type=MessageType.RESUME_EXECUTION.value,

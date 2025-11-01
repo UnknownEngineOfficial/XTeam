@@ -59,6 +59,9 @@ class Execution(Base):
     
     # Class constants for execution states
     CANCELLABLE_STATUSES = {ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED}
+    PAUSABLE_STATUSES = {ExecutionStatus.RUNNING, ExecutionStatus.PENDING}
+    RESUMABLE_STATUSES = {ExecutionStatus.PAUSED}
+    ACTIVE_STATUSES = {ExecutionStatus.RUNNING, ExecutionStatus.PAUSED}
     FINISHED_STATUSES = {ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED, ExecutionStatus.TIMEOUT}
 
     # ========================================================================
@@ -403,8 +406,8 @@ class Execution(Base):
         return logs
 
     def is_running(self) -> bool:
-        """Check if execution is currently running."""
-        return self.status in [ExecutionStatus.RUNNING, ExecutionStatus.PAUSED]
+        """Check if execution is currently running or active."""
+        return self.status in self.ACTIVE_STATUSES
 
     def is_completed(self) -> bool:
         """Check if execution is completed."""
