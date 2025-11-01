@@ -44,7 +44,6 @@ security = HTTPBearer(auto_error=False)
 # ============================================================================
 
 router = APIRouter(
-    prefix="/auth",
     tags=["Authentication"],
     responses={
         401: {"model": ErrorResponse, "description": "Unauthorized"},

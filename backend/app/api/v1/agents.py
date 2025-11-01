@@ -49,7 +49,6 @@ PROVIDER_API_KEY_SETTINGS = {
 # ============================================================================
 
 router = APIRouter(
-    prefix="/agents",
     tags=["Agents"],
     responses={
         401: {"model": AgentConfigErrorResponse, "description": "Unauthorized"},

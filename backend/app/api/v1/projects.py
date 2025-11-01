@@ -40,7 +40,6 @@ from app.api.deps import (
 # ============================================================================
 
 router = APIRouter(
-    prefix="/projects",
     tags=["Projects"],
     responses={
         401: {"model": ProjectErrorResponse, "description": "Unauthorized"},
