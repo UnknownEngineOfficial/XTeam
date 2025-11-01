@@ -765,22 +765,23 @@ async def test_config(
         import time
         
         try:
-            # Get API key from settings based on provider
-            api_key = ""
-            if config.llm_provider == "openai":
-                api_key = getattr(settings, "openai_api_key", "")
-            elif config.llm_provider == "azure_openai":
-                api_key = getattr(settings, "azure_openai_api_key", "")
-            elif config.llm_provider == "groq":
-                api_key = getattr(settings, "groq_api_key", "")
-            # Ollama doesn't need an API key
+            # Provider-to-API-key mapping
+            provider_api_keys = {
+                "openai": getattr(settings, "openai_api_key", ""),
+                "azure_openai": getattr(settings, "azure_openai_api_key", ""),
+                "groq": getattr(settings, "groq_api_key", ""),
+                "ollama": "",  # Ollama doesn't need an API key
+            }
             
-            if not api_key and config.llm_provider != "ollama":
+            provider = config.llm_provider.value
+            api_key = provider_api_keys.get(provider, "")
+            
+            if not api_key and provider != "ollama":
                 return TestConfigResponse(
                     success=False,
                     response=None,
                     duration_ms=None,
-                    error=f"API key not configured for provider: {config.llm_provider.value}",
+                    error=f"API key not configured for provider: {provider}",
                 )
             
             # Create LLM client

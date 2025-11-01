@@ -43,7 +43,7 @@ class Execution(Base):
         project_id: Project ID (FK to Project)
         user_id: User ID who triggered execution (FK to User)
         execution_type: Type of execution (full, partial, test, deployment)
-        status: Execution status (pending, running, completed, failed, cancelled, timeout)
+        status: Execution status (pending, running, paused, completed, failed, cancelled, timeout)
         agent_logs: Detailed logs from agent execution (JSON)
         output: Execution output/results (JSON)
         error_message: Error message if execution failed
@@ -56,6 +56,10 @@ class Execution(Base):
     """
 
     __tablename__ = "executions"
+    
+    # Class constants for execution states
+    CANCELLABLE_STATUSES = {ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED}
+    FINISHED_STATUSES = {ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED, ExecutionStatus.TIMEOUT}
 
     # ========================================================================
     # Primary Key
@@ -312,7 +316,7 @@ class Execution(Base):
 
     def cancel(self) -> None:
         """Cancel execution."""
-        if self.status in [ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED]:
+        if self.status in self.CANCELLABLE_STATUSES:
             self.status = ExecutionStatus.CANCELLED
             self.completed_at = datetime.now(timezone.utc)
             self._calculate_duration()
@@ -416,12 +420,7 @@ class Execution(Base):
 
     def is_finished(self) -> bool:
         """Check if execution is finished (completed, failed, cancelled, or timeout)."""
-        return self.status in [
-            ExecutionStatus.COMPLETED,
-            ExecutionStatus.FAILED,
-            ExecutionStatus.CANCELLED,
-            ExecutionStatus.TIMEOUT,
-        ]
+        return self.status in self.FINISHED_STATUSES
 
     def set_metadata(self, key: str, value: Any) -> None:
         """

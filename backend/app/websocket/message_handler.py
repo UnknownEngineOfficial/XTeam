@@ -1004,19 +1004,22 @@ class MessageHandler:
             
             # Prepare update data
             from app.schemas.agent_config import AgentConfigUpdate
-            update_data = AgentConfigUpdate()
             
-            # Update only provided fields
+            # Build update dict from provided fields
+            update_dict = {}
             if "temperature" in payload:
-                update_data.temperature = payload["temperature"]
+                update_dict["temperature"] = payload["temperature"]
             if "max_tokens" in payload:
-                update_data.max_tokens = payload["max_tokens"]
+                update_dict["max_tokens"] = payload["max_tokens"]
             if "top_p" in payload:
-                update_data.top_p = payload["top_p"]
+                update_dict["top_p"] = payload["top_p"]
             if "frequency_penalty" in payload:
-                update_data.frequency_penalty = payload["frequency_penalty"]
+                update_dict["frequency_penalty"] = payload["frequency_penalty"]
             if "presence_penalty" in payload:
-                update_data.presence_penalty = payload["presence_penalty"]
+                update_dict["presence_penalty"] = payload["presence_penalty"]
+            
+            # Create update model
+            update_data = AgentConfigUpdate(**update_dict)
             
             try:
                 config = await self.agent_service.update_agent_config(

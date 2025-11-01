@@ -461,6 +461,42 @@ def get_filters(
 # Rate Limiting Dependencies
 # ============================================================================
 
+class RateLimitStore:
+    """
+    Thread-safe rate limit store using singleton pattern.
+    
+    For production, replace with Redis implementation.
+    """
+    _instance = None
+    _lock = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._store = {}
+            # Use threading.Lock for thread safety
+            import threading
+            cls._lock = threading.Lock()
+        return cls._instance
+    
+    def get_requests(self, user_id: str) -> list:
+        """Get request timestamps for a user."""
+        with self._lock:
+            return self._store.get(user_id, []).copy()
+    
+    def set_requests(self, user_id: str, timestamps: list) -> None:
+        """Set request timestamps for a user."""
+        with self._lock:
+            self._store[user_id] = timestamps
+    
+    def add_request(self, user_id: str, timestamp: float) -> None:
+        """Add a request timestamp for a user."""
+        with self._lock:
+            if user_id not in self._store:
+                self._store[user_id] = []
+            self._store[user_id].append(timestamp)
+
+
 async def check_rate_limit(
     current_user: User = Depends(get_current_user),
 ) -> User:
@@ -468,7 +504,8 @@ async def check_rate_limit(
     Check rate limit for current user.
     
     This dependency enforces rate limiting on specific endpoints using
-    a simple in-memory counter. For production, use Redis-based rate limiting.
+    a thread-safe in-memory store. For production with multiple workers,
+    use Redis-based rate limiting.
     
     Args:
         current_user: Current authenticated user
@@ -486,13 +523,10 @@ async def check_rate_limit(
         ):
             # This endpoint is rate limited
     """
-    from datetime import datetime, timedelta
     import time
     
-    # In-memory rate limit tracking (for development)
-    # In production, use Redis with sliding window or token bucket algorithm
-    if not hasattr(check_rate_limit, "_rate_limit_store"):
-        check_rate_limit._rate_limit_store = {}
+    # Get rate limit store (singleton)
+    rate_store = RateLimitStore()
     
     user_id = str(current_user.id)
     current_time = time.time()
@@ -501,21 +535,14 @@ async def check_rate_limit(
     window_seconds = 60
     max_requests = 60
     
-    # Clean up old entries
-    if user_id in check_rate_limit._rate_limit_store:
-        check_rate_limit._rate_limit_store[user_id] = [
-            timestamp for timestamp in check_rate_limit._rate_limit_store[user_id]
-            if current_time - timestamp < window_seconds
-        ]
-    else:
-        check_rate_limit._rate_limit_store[user_id] = []
+    # Get current requests and clean up old entries
+    requests = rate_store.get_requests(user_id)
+    requests = [ts for ts in requests if current_time - ts < window_seconds]
     
     # Check rate limit
-    request_count = len(check_rate_limit._rate_limit_store[user_id])
-    
-    if request_count >= max_requests:
+    if len(requests) >= max_requests:
         # Calculate retry time
-        oldest_request = min(check_rate_limit._rate_limit_store[user_id])
+        oldest_request = min(requests)
         retry_after = int(window_seconds - (current_time - oldest_request)) + 1
         
         raise HTTPException(
@@ -524,8 +551,9 @@ async def check_rate_limit(
             headers={"Retry-After": str(retry_after)},
         )
     
-    # Add current request timestamp
-    check_rate_limit._rate_limit_store[user_id].append(current_time)
+    # Add current request and update store
+    requests.append(current_time)
+    rate_store.set_requests(user_id, requests)
     
     return current_user
 
