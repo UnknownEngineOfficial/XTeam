@@ -147,4 +147,4 @@ ignore = [
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
-"alembic/*" = ["ALL"]
+"alembic/versions/*" = ["E501"]  # Only ignore line length in auto-generated migrations

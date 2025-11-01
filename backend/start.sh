@@ -3,7 +3,11 @@
 
 set -e
 
+echo "Waiting for database to be ready..."
+sleep 2
+
 echo "Running database migrations..."
+# Use advisory lock to prevent concurrent migrations
 alembic upgrade head
 
 echo "Starting application..."

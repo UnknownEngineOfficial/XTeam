@@ -50,8 +50,8 @@ services:
     environment:
       # Application
       APP_NAME: ${APP_NAME:-XTeam}
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DEBUG: ${DEBUG:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       
       # Server

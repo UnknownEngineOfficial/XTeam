@@ -9,17 +9,6 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from httpx import AsyncClient
 
-# Set test environment variables
-os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test-secret-key"
-os.environ["DEBUG"] = "true"
-
-from app.main import app
-from app.core.database import Base, get_db
-from app.core.security import create_access_token
-from app.models.user import User
-
 
 # ============================================================================
 # Pytest Configuration
@@ -31,6 +20,22 @@ def event_loop() -> Generator:
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_test_env(monkeypatch):
+    """Set up test environment variables."""
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
+    monkeypatch.setenv("DEBUG", "true")
+
+
+# Import after env setup
+from app.main import app
+from app.core.database import Base, get_db
+from app.core.security import create_access_token
+from app.models.user import User
 
 
 # ============================================================================

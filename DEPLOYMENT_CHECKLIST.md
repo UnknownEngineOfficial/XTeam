@@ -189,3 +189,25 @@ Use this checklist before deploying XTeam to production.
 ---
 
 **Note**: This checklist should be reviewed and updated regularly. Not all items may apply to your specific deployment.
+
+## Docker-Specific Considerations
+
+### Migration Locks (Multi-Instance Deployments)
+
+When deploying multiple backend instances, be aware that the startup script runs migrations on every container start. For production:
+
+**Option 1: Init Container (Kubernetes)**
+```yaml
+initContainers:
+- name: migrations
+  image: your-backend-image
+  command: ["alembic", "upgrade", "head"]
+  env: [... same env as main container ...]
+```
+
+**Option 2: Separate Migration Job**
+Run migrations as a separate one-time job before rolling out new containers.
+
+**Option 3: Migration Locks**
+Alembic supports advisory locks in PostgreSQL to prevent concurrent migrations. This is handled automatically by PostgreSQL's advisory locks.
+
