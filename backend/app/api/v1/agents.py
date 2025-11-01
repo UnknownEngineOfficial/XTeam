@@ -759,20 +759,80 @@ async def test_config(
                 detail="Configuration not found",
             )
         
-        # TODO: Implement actual LLM testing
-        # This would involve:
-        # 1. Getting the LLM configuration
-        # 2. Initializing the LLM client
-        # 3. Sending the test prompt
-        # 4. Measuring response time
-        # 5. Returning the response
+        # Get LLM client from registry
+        from app.metagpt_integration.llm_registry import get_llm_client
+        from app.core.config import settings
+        import time
         
-        return TestConfigResponse(
-            success=True,
-            response="Test response from LLM (placeholder)",
-            duration_ms=1250.5,
-            error=None,
-        )
+        try:
+            # Get API key from settings based on provider
+            api_key = ""
+            if config.llm_provider == "openai":
+                api_key = getattr(settings, "openai_api_key", "")
+            elif config.llm_provider == "azure_openai":
+                api_key = getattr(settings, "azure_openai_api_key", "")
+            elif config.llm_provider == "groq":
+                api_key = getattr(settings, "groq_api_key", "")
+            # Ollama doesn't need an API key
+            
+            if not api_key and config.llm_provider != "ollama":
+                return TestConfigResponse(
+                    success=False,
+                    response=None,
+                    duration_ms=None,
+                    error=f"API key not configured for provider: {config.llm_provider.value}",
+                )
+            
+            # Create LLM client
+            llm_client = get_llm_client(
+                provider=config.llm_provider.value,
+                model=config.llm_model,
+                api_key=api_key,
+                cache=False,  # Don't cache test clients
+            )
+            
+            # Validate connection
+            is_valid = await llm_client.validate_connection()
+            if not is_valid:
+                return TestConfigResponse(
+                    success=False,
+                    response=None,
+                    duration_ms=None,
+                    error="Failed to connect to LLM provider",
+                )
+            
+            # Test with prompt
+            start_time = time.time()
+            response_text = await llm_client.generate(
+                prompt=test_request.test_prompt,
+                temperature=config.temperature,
+                max_tokens=int(config.max_tokens),
+            )
+            end_time = time.time()
+            
+            duration_ms = (end_time - start_time) * 1000
+            
+            return TestConfigResponse(
+                success=True,
+                response=response_text,
+                duration_ms=duration_ms,
+                error=None,
+            )
+            
+        except ImportError as e:
+            return TestConfigResponse(
+                success=False,
+                response=None,
+                duration_ms=None,
+                error=f"LLM provider package not installed: {str(e)}",
+            )
+        except Exception as e:
+            return TestConfigResponse(
+                success=False,
+                response=None,
+                duration_ms=None,
+                error=str(e),
+            )
         
     except HTTPException:
         raise

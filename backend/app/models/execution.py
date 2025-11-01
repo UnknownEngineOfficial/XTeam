@@ -19,6 +19,7 @@ class ExecutionStatus(str, enum.Enum):
     """Execution status enumeration."""
     PENDING = "pending"
     RUNNING = "running"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -299,9 +300,19 @@ class Execution(Base):
         if output:
             self.output = output
 
+    def pause(self) -> None:
+        """Pause execution."""
+        if self.status == ExecutionStatus.RUNNING:
+            self.status = ExecutionStatus.PAUSED
+
+    def resume(self) -> None:
+        """Resume execution."""
+        if self.status == ExecutionStatus.PAUSED:
+            self.status = ExecutionStatus.RUNNING
+
     def cancel(self) -> None:
         """Cancel execution."""
-        if self.status in [ExecutionStatus.PENDING, ExecutionStatus.RUNNING]:
+        if self.status in [ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED]:
             self.status = ExecutionStatus.CANCELLED
             self.completed_at = datetime.now(timezone.utc)
             self._calculate_duration()
@@ -389,7 +400,7 @@ class Execution(Base):
 
     def is_running(self) -> bool:
         """Check if execution is currently running."""
-        return self.status == ExecutionStatus.RUNNING
+        return self.status in [ExecutionStatus.RUNNING, ExecutionStatus.PAUSED]
 
     def is_completed(self) -> bool:
         """Check if execution is completed."""

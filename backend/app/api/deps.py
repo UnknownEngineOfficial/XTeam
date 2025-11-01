@@ -467,7 +467,8 @@ async def check_rate_limit(
     """
     Check rate limit for current user.
     
-    This dependency can be used to enforce rate limiting on specific endpoints.
+    This dependency enforces rate limiting on specific endpoints using
+    a simple in-memory counter. For production, use Redis-based rate limiting.
     
     Args:
         current_user: Current authenticated user
@@ -485,8 +486,47 @@ async def check_rate_limit(
         ):
             # This endpoint is rate limited
     """
-    # TODO: Implement actual rate limiting logic
-    # This could use Redis to track request counts per user
+    from datetime import datetime, timedelta
+    import time
+    
+    # In-memory rate limit tracking (for development)
+    # In production, use Redis with sliding window or token bucket algorithm
+    if not hasattr(check_rate_limit, "_rate_limit_store"):
+        check_rate_limit._rate_limit_store = {}
+    
+    user_id = str(current_user.id)
+    current_time = time.time()
+    
+    # Rate limit: 60 requests per minute per user
+    window_seconds = 60
+    max_requests = 60
+    
+    # Clean up old entries
+    if user_id in check_rate_limit._rate_limit_store:
+        check_rate_limit._rate_limit_store[user_id] = [
+            timestamp for timestamp in check_rate_limit._rate_limit_store[user_id]
+            if current_time - timestamp < window_seconds
+        ]
+    else:
+        check_rate_limit._rate_limit_store[user_id] = []
+    
+    # Check rate limit
+    request_count = len(check_rate_limit._rate_limit_store[user_id])
+    
+    if request_count >= max_requests:
+        # Calculate retry time
+        oldest_request = min(check_rate_limit._rate_limit_store[user_id])
+        retry_after = int(window_seconds - (current_time - oldest_request)) + 1
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    
+    # Add current request timestamp
+    check_rate_limit._rate_limit_store[user_id].append(current_time)
+    
     return current_user
 
 
