@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from tests.conftest import TEST_USER_PASSWORD
 
 
 class TestAuthEndpoints:
@@ -53,7 +54,7 @@ class TestAuthEndpoints:
             "/api/v1/auth/login",
             json={
                 "email": test_user.email,
-                "password": "TestPassword123",
+                "password": TEST_USER_PASSWORD,
             }
         )
         assert response.status_code == 200
