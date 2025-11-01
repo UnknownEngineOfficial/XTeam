@@ -32,6 +32,19 @@ from app.services.agent_service import AgentService, get_agent_service
 from app.api.deps import get_current_user
 
 # ============================================================================
+# Module Constants
+# ============================================================================
+
+# Provider-to-API-key setting mapping
+# Maps LLM provider names to their corresponding settings attribute names
+PROVIDER_API_KEY_SETTINGS = {
+    "openai": "openai_api_key",
+    "azure_openai": "azure_openai_api_key",
+    "groq": "groq_api_key",
+    "ollama": "",  # Ollama doesn't need an API key
+}
+
+# ============================================================================
 # Router Configuration
 # ============================================================================
 
@@ -759,20 +772,80 @@ async def test_config(
                 detail="Configuration not found",
             )
         
-        # TODO: Implement actual LLM testing
-        # This would involve:
-        # 1. Getting the LLM configuration
-        # 2. Initializing the LLM client
-        # 3. Sending the test prompt
-        # 4. Measuring response time
-        # 5. Returning the response
+        # Get LLM client from registry
+        from app.metagpt_integration.llm_registry import get_llm_client
+        from app.core.config import settings
+        import time
         
-        return TestConfigResponse(
-            success=True,
-            response="Test response from LLM (placeholder)",
-            duration_ms=1250.5,
-            error=None,
-        )
+        try:
+            # Get API key from settings using module constant mapping
+            from app.core.config import settings
+            import time
+            
+            provider = config.llm_provider.value
+            api_key_setting = PROVIDER_API_KEY_SETTINGS.get(provider, "")
+            
+            # Get API key from settings if setting name is provided
+            api_key = getattr(settings, api_key_setting, "") if api_key_setting else ""
+            
+            if not api_key and provider != "ollama":
+                return TestConfigResponse(
+                    success=False,
+                    response=None,
+                    duration_ms=None,
+                    error=f"API key not configured for provider: {provider}",
+                )
+            
+            # Create LLM client
+            llm_client = get_llm_client(
+                provider=config.llm_provider.value,
+                model=config.llm_model,
+                api_key=api_key,
+                cache=False,  # Don't cache test clients
+            )
+            
+            # Validate connection
+            is_valid = await llm_client.validate_connection()
+            if not is_valid:
+                return TestConfigResponse(
+                    success=False,
+                    response=None,
+                    duration_ms=None,
+                    error="Failed to connect to LLM provider",
+                )
+            
+            # Test with prompt
+            start_time = time.time()
+            response_text = await llm_client.generate(
+                prompt=test_request.test_prompt,
+                temperature=config.temperature,
+                max_tokens=int(config.max_tokens),
+            )
+            end_time = time.time()
+            
+            duration_ms = (end_time - start_time) * 1000
+            
+            return TestConfigResponse(
+                success=True,
+                response=response_text,
+                duration_ms=duration_ms,
+                error=None,
+            )
+            
+        except ImportError as e:
+            return TestConfigResponse(
+                success=False,
+                response=None,
+                duration_ms=None,
+                error=f"LLM provider package not installed: {str(e)}",
+            )
+        except Exception as e:
+            return TestConfigResponse(
+                success=False,
+                response=None,
+                duration_ms=None,
+                error=str(e),
+            )
         
     except HTTPException:
         raise

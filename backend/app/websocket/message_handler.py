@@ -374,26 +374,152 @@ class MessageHandler:
         payload: Dict[str, Any],
         user: User,
     ) -> MessageResponse:
-        """Handle pause execution message."""
-        # Placeholder for pause functionality
-        return MessageResponse(
-            success=False,
-            message_type=MessageType.PAUSE_EXECUTION.value,
-            error="Pause execution not yet implemented",
-        )
+        """
+        Handle pause execution message.
+        
+        Payload:
+            - execution_id: Execution ID to pause
+        """
+        try:
+            execution_id = payload.get("execution_id")
+            if not execution_id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.PAUSE_EXECUTION.value,
+                    error="Missing execution_id",
+                )
+
+            # Get execution
+            execution = await self.db.get(Execution, UUID(execution_id))
+            if not execution or execution.user_id != user.id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.PAUSE_EXECUTION.value,
+                    error="Execution not found",
+                )
+            
+            # Check if execution can be paused
+            if execution.status not in Execution.PAUSABLE_STATUSES:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.PAUSE_EXECUTION.value,
+                    error=f"Cannot pause execution in status: {execution.status.value}",
+                )
+
+            # Pause execution
+            execution.status = ExecutionStatus.PAUSED
+            await self.db.commit()
+
+            # Emit event
+            streaming = await get_streaming_handler()
+            await streaming.emit_status(
+                status="paused",
+                source="message_handler",
+                execution_id=str(execution.id),
+                project_id=str(execution.project_id),
+            )
+
+            logger.info(f"Paused execution {execution.id}")
+
+            return MessageResponse(
+                success=True,
+                message_type=MessageType.PAUSE_EXECUTION.value,
+                data={"execution_id": str(execution.id), "status": execution.status.value},
+            )
+
+        except Exception as e:
+            logger.error(f"Error pausing execution: {e}")
+            return MessageResponse(
+                success=False,
+                message_type=MessageType.PAUSE_EXECUTION.value,
+                error=str(e),
+            )
 
     async def _handle_resume_execution(
         self,
         payload: Dict[str, Any],
         user: User,
     ) -> MessageResponse:
-        """Handle resume execution message."""
-        # Placeholder for resume functionality
-        return MessageResponse(
-            success=False,
-            message_type=MessageType.RESUME_EXECUTION.value,
-            error="Resume execution not yet implemented",
-        )
+        """
+        Handle resume execution message.
+        
+        Payload:
+            - execution_id: Execution ID to resume
+        """
+        try:
+            execution_id = payload.get("execution_id")
+            if not execution_id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.RESUME_EXECUTION.value,
+                    error="Missing execution_id",
+                )
+
+            # Get execution
+            execution = await self.db.get(Execution, UUID(execution_id))
+            if not execution or execution.user_id != user.id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.RESUME_EXECUTION.value,
+                    error="Execution not found",
+                )
+            
+            # Check if execution can be resumed
+            if execution.status not in Execution.RESUMABLE_STATUSES:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.RESUME_EXECUTION.value,
+                    error=f"Cannot resume execution in status: {execution.status.value}",
+                )
+
+            # Resume execution
+            execution.status = ExecutionStatus.RUNNING
+            await self.db.commit()
+            
+            # Re-enqueue job to continue execution
+            task_queue = await get_task_queue(self.settings)
+            job_id = await task_queue.enqueue_job(
+                job_type="workflow_resume",
+                payload={
+                    "project_id": str(execution.project_id),
+                    "execution_id": str(execution.id),
+                    "user_id": str(user.id),
+                },
+                priority=JobPriority.HIGH,
+                max_retries=2,
+                timeout_seconds=3600,
+                tags=["workflow", "resume", str(execution.project_id)],
+            )
+
+            # Emit event
+            streaming = await get_streaming_handler()
+            await streaming.emit_status(
+                status="resumed",
+                details={"job_id": job_id},
+                source="message_handler",
+                execution_id=str(execution.id),
+                project_id=str(execution.project_id),
+            )
+
+            logger.info(f"Resumed execution {execution.id}")
+
+            return MessageResponse(
+                success=True,
+                message_type=MessageType.RESUME_EXECUTION.value,
+                data={
+                    "execution_id": str(execution.id),
+                    "status": execution.status.value,
+                    "job_id": job_id,
+                },
+            )
+
+        except Exception as e:
+            logger.error(f"Error resuming execution: {e}")
+            return MessageResponse(
+                success=False,
+                message_type=MessageType.RESUME_EXECUTION.value,
+                error=str(e),
+            )
 
     # ========================================================================
     # Project Handlers
@@ -652,24 +778,149 @@ class MessageHandler:
         payload: Dict[str, Any],
         user: User,
     ) -> MessageResponse:
-        """Handle get file message (placeholder)."""
-        return MessageResponse(
-            success=False,
-            message_type=MessageType.GET_FILE.value,
-            error="Get file not yet implemented",
-        )
+        """
+        Handle get file message.
+        
+        Payload:
+            - project_id: Project ID
+            - file_path: Relative file path within workspace
+        """
+        try:
+            project_id = payload.get("project_id")
+            file_path = payload.get("file_path")
+            
+            if not project_id or not file_path:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.GET_FILE.value,
+                    error="Missing project_id or file_path",
+                )
+            
+            # Verify project ownership
+            project = await self.project_service.get_project(project_id, user.id)
+            if not project:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.GET_FILE.value,
+                    error="Project not found",
+                )
+            
+            # Get file using file handler
+            from app.metagpt_integration.file_handler import get_file_handler
+            file_handler = get_file_handler()
+            
+            try:
+                content = file_handler.read_file(project_id, file_path)
+                file_info = file_handler.get_file_info(project_id, file_path)
+                
+                return MessageResponse(
+                    success=True,
+                    message_type=MessageType.GET_FILE.value,
+                    data={
+                        "file_path": file_path,
+                        "content": content,
+                        "size": file_info.get("size"),
+                        "modified_at": file_info.get("modified_at"),
+                    },
+                )
+            except FileNotFoundError:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.GET_FILE.value,
+                    error=f"File not found: {file_path}",
+                )
+            except ValueError as e:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.GET_FILE.value,
+                    error=str(e),
+                )
+                
+        except Exception as e:
+            logger.error(f"Error getting file: {e}")
+            return MessageResponse(
+                success=False,
+                message_type=MessageType.GET_FILE.value,
+                error=str(e),
+            )
 
     async def _handle_list_files(
         self,
         payload: Dict[str, Any],
         user: User,
     ) -> MessageResponse:
-        """Handle list files message (placeholder)."""
-        return MessageResponse(
-            success=False,
-            message_type=MessageType.LIST_FILES.value,
-            error="List files not yet implemented",
-        )
+        """
+        Handle list files message.
+        
+        Payload:
+            - project_id: Project ID
+            - directory: Optional relative directory path (default: root)
+            - recursive: Optional boolean to list recursively (default: False)
+        """
+        try:
+            project_id = payload.get("project_id")
+            
+            if not project_id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.LIST_FILES.value,
+                    error="Missing project_id",
+                )
+            
+            # Verify project ownership
+            project = await self.project_service.get_project(project_id, user.id)
+            if not project:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.LIST_FILES.value,
+                    error="Project not found",
+                )
+            
+            # Get file handler
+            from app.metagpt_integration.file_handler import get_file_handler
+            file_handler = get_file_handler()
+            
+            # Check if workspace exists
+            if not file_handler.workspace_exists(project_id):
+                return MessageResponse(
+                    success=True,
+                    message_type=MessageType.LIST_FILES.value,
+                    data={
+                        "files": [],
+                        "directories": [],
+                    },
+                )
+            
+            try:
+                directory = payload.get("directory", "")
+                recursive = payload.get("recursive", False)
+                
+                files = file_handler.list_files(project_id, directory, recursive)
+                directories = file_handler.list_directories(project_id, directory)
+                
+                return MessageResponse(
+                    success=True,
+                    message_type=MessageType.LIST_FILES.value,
+                    data={
+                        "files": files,
+                        "directories": directories,
+                        "directory": directory,
+                    },
+                )
+            except ValueError as e:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.LIST_FILES.value,
+                    error=str(e),
+                )
+                
+        except Exception as e:
+            logger.error(f"Error listing files: {e}")
+            return MessageResponse(
+                success=False,
+                message_type=MessageType.LIST_FILES.value,
+                error=str(e),
+            )
 
     # ========================================================================
     # Configuration Handlers
@@ -730,12 +981,85 @@ class MessageHandler:
         payload: Dict[str, Any],
         user: User,
     ) -> MessageResponse:
-        """Handle update agent config message (placeholder)."""
-        return MessageResponse(
-            success=False,
-            message_type=MessageType.UPDATE_AGENT_CONFIG.value,
-            error="Update agent config not yet implemented",
-        )
+        """
+        Handle update agent config message.
+        
+        Payload:
+            - config_id: Configuration ID
+            - temperature: Optional temperature value
+            - max_tokens: Optional max tokens value
+            - top_p: Optional top_p value
+            - frequency_penalty: Optional frequency penalty
+            - presence_penalty: Optional presence penalty
+        """
+        try:
+            config_id = payload.get("config_id")
+            
+            if not config_id:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.UPDATE_AGENT_CONFIG.value,
+                    error="Missing config_id",
+                )
+            
+            # Prepare update data
+            from app.schemas.agent_config import AgentConfigUpdate
+            
+            # Build update dict from provided fields
+            update_dict = {}
+            if "temperature" in payload:
+                update_dict["temperature"] = payload["temperature"]
+            if "max_tokens" in payload:
+                update_dict["max_tokens"] = payload["max_tokens"]
+            if "top_p" in payload:
+                update_dict["top_p"] = payload["top_p"]
+            if "frequency_penalty" in payload:
+                update_dict["frequency_penalty"] = payload["frequency_penalty"]
+            if "presence_penalty" in payload:
+                update_dict["presence_penalty"] = payload["presence_penalty"]
+            
+            # Create update model
+            update_data = AgentConfigUpdate(**update_dict)
+            
+            try:
+                config = await self.agent_service.update_agent_config(
+                    config_id,
+                    str(user.id),
+                    update_data,
+                )
+                
+                return MessageResponse(
+                    success=True,
+                    message_type=MessageType.UPDATE_AGENT_CONFIG.value,
+                    data={
+                        "config_id": str(config.id),
+                        "agent_role": config.agent_role.value,
+                        "llm_provider": config.llm_provider.value,
+                        "llm_model": config.llm_model,
+                        "temperature": config.temperature,
+                        "max_tokens": config.max_tokens,
+                    },
+                )
+            except ValueError as e:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.UPDATE_AGENT_CONFIG.value,
+                    error=str(e),
+                )
+            except PermissionError:
+                return MessageResponse(
+                    success=False,
+                    message_type=MessageType.UPDATE_AGENT_CONFIG.value,
+                    error="You do not have permission to update this configuration",
+                )
+                
+        except Exception as e:
+            logger.error(f"Error updating agent config: {e}")
+            return MessageResponse(
+                success=False,
+                message_type=MessageType.UPDATE_AGENT_CONFIG.value,
+                error=str(e),
+            )
 
     # ========================================================================
     # Subscription Handlers

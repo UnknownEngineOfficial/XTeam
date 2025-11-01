@@ -19,6 +19,7 @@ class ExecutionStatus(str, enum.Enum):
     """Execution status enumeration."""
     PENDING = "pending"
     RUNNING = "running"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -42,7 +43,7 @@ class Execution(Base):
         project_id: Project ID (FK to Project)
         user_id: User ID who triggered execution (FK to User)
         execution_type: Type of execution (full, partial, test, deployment)
-        status: Execution status (pending, running, completed, failed, cancelled, timeout)
+        status: Execution status (pending, running, paused, completed, failed, cancelled, timeout)
         agent_logs: Detailed logs from agent execution (JSON)
         output: Execution output/results (JSON)
         error_message: Error message if execution failed
@@ -55,6 +56,13 @@ class Execution(Base):
     """
 
     __tablename__ = "executions"
+    
+    # Class constants for execution states
+    CANCELLABLE_STATUSES = {ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.PAUSED}
+    PAUSABLE_STATUSES = {ExecutionStatus.RUNNING, ExecutionStatus.PENDING}
+    RESUMABLE_STATUSES = {ExecutionStatus.PAUSED}
+    ACTIVE_STATUSES = {ExecutionStatus.RUNNING, ExecutionStatus.PAUSED}
+    FINISHED_STATUSES = {ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED, ExecutionStatus.TIMEOUT}
 
     # ========================================================================
     # Primary Key
@@ -299,9 +307,19 @@ class Execution(Base):
         if output:
             self.output = output
 
+    def pause(self) -> None:
+        """Pause execution."""
+        if self.status == ExecutionStatus.RUNNING:
+            self.status = ExecutionStatus.PAUSED
+
+    def resume(self) -> None:
+        """Resume execution."""
+        if self.status == ExecutionStatus.PAUSED:
+            self.status = ExecutionStatus.RUNNING
+
     def cancel(self) -> None:
         """Cancel execution."""
-        if self.status in [ExecutionStatus.PENDING, ExecutionStatus.RUNNING]:
+        if self.status in self.CANCELLABLE_STATUSES:
             self.status = ExecutionStatus.CANCELLED
             self.completed_at = datetime.now(timezone.utc)
             self._calculate_duration()
@@ -388,8 +406,8 @@ class Execution(Base):
         return logs
 
     def is_running(self) -> bool:
-        """Check if execution is currently running."""
-        return self.status == ExecutionStatus.RUNNING
+        """Check if execution is currently running or active."""
+        return self.status in self.ACTIVE_STATUSES
 
     def is_completed(self) -> bool:
         """Check if execution is completed."""
@@ -405,12 +423,7 @@ class Execution(Base):
 
     def is_finished(self) -> bool:
         """Check if execution is finished (completed, failed, cancelled, or timeout)."""
-        return self.status in [
-            ExecutionStatus.COMPLETED,
-            ExecutionStatus.FAILED,
-            ExecutionStatus.CANCELLED,
-            ExecutionStatus.TIMEOUT,
-        ]
+        return self.status in self.FINISHED_STATUSES
 
     def set_metadata(self, key: str, value: Any) -> None:
         """

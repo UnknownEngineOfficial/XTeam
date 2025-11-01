@@ -486,7 +486,11 @@ async def logout(
     
     This endpoint performs logout operations. Since we're using stateless JWT tokens,
     the actual logout is handled on the client side by discarding the tokens.
-    This endpoint can be used for logging purposes or future session management.
+    
+    For enhanced security, implement token blacklisting:
+    1. Store invalidated tokens in Redis with expiration
+    2. Check blacklist in the get_current_user dependency
+    3. Clean up expired tokens automatically
     
     Args:
         current_user: Current authenticated user
@@ -498,8 +502,8 @@ async def logout(
         POST /api/v1/auth/logout
         Authorization: Bearer <access_token>
     """
-    # TODO: Implement token blacklisting if needed
-    # For now, logout is handled client-side by discarding tokens
+    # Client-side logout: Frontend should discard access and refresh tokens
+    # For server-side token blacklisting, add Redis integration here
     
     return {"message": "Logged out successfully"}
 
@@ -523,6 +527,19 @@ async def verify_email(
     
     This endpoint verifies a user's email address using a verification token.
     
+    Implementation requires:
+    1. Email service integration (SMTP, SendGrid, AWS SES, etc.)
+    2. Token generation during registration (JWT or random token)
+    3. Token storage (in database or encoded in JWT)
+    4. Email template for verification
+    5. Email sending logic
+    
+    Flow:
+    1. User registers -> Generate verification token
+    2. Send email with verification link
+    3. User clicks link -> This endpoint validates token
+    4. Mark user's email_verified field as True
+    
     Args:
         token: Email verification token
         db: Database session
@@ -533,18 +550,19 @@ async def verify_email(
     Raises:
         HTTPException: 400 Bad Request if token is invalid or expired
         HTTPException: 404 Not Found if user not found
-        
-    Note:
-        This is a placeholder for email verification functionality.
-        Implementation depends on email service integration.
     """
-    # TODO: Implement email verification logic
-    # This would involve:
-    # 1. Verifying the token
-    # 2. Finding the user associated with the token
-    # 3. Marking the user's email as verified
+    # Implementation steps:
+    # 1. Decode and verify the token
+    # 2. Extract user_id from token
+    # 3. Find user in database
+    # 4. Check if already verified
+    # 5. Update user.email_verified = True
+    # 6. Save to database
     
-    return {"message": "Email verified successfully"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Email verification requires email service configuration",
+    )
 
 
 @router.post(
@@ -562,24 +580,43 @@ async def request_password_reset(
     
     This endpoint sends a password reset token to the user's email address.
     
+    Implementation requires:
+    1. Email service integration
+    2. Token generation with expiration (e.g., 1 hour)
+    3. Email template for password reset
+    4. Rate limiting to prevent abuse
+    
+    Flow:
+    1. User requests reset -> Find user by email
+    2. Generate time-limited reset token
+    3. Send email with reset link
+    4. User clicks link -> Navigate to password reset page
+    5. User submits new password with token
+    
+    Security considerations:
+    - Don't reveal if email exists (always return success)
+    - Use short-lived tokens (1 hour max)
+    - Invalidate token after use
+    - Rate limit requests per email/IP
+    
     Args:
         email: User email address
         db: Database session
         
     Returns:
-        dict: Success message
-        
-    Note:
-        This is a placeholder for password reset functionality.
-        Implementation depends on email service integration.
+        dict: Success message (always, for security)
     """
-    # TODO: Implement password reset request logic
-    # This would involve:
-    # 1. Finding the user by email
-    # 2. Generating a reset token
-    # 3. Sending the token via email
+    # Implementation steps:
+    # 1. Find user by email (don't reveal if not found)
+    # 2. Generate reset token with expiration
+    # 3. Store token hash in database or encode in JWT
+    # 4. Send email with reset link
+    # 5. Return success message regardless
     
-    return {"message": "Password reset email sent"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password reset requires email service configuration",
+    )
 
 
 @router.post(
@@ -598,6 +635,30 @@ async def reset_password(
     
     This endpoint resets a user's password using a password reset token.
     
+    Implementation requires:
+    1. Token validation and expiration checking
+    2. User lookup from token
+    3. Password strength validation
+    4. Password hashing
+    5. Token invalidation after use
+    
+    Flow:
+    1. Validate token and check expiration
+    2. Extract user_id from token
+    3. Find user in database
+    4. Validate new password meets requirements
+    5. Hash new password
+    6. Update user password
+    7. Invalidate reset token
+    8. Optionally: Invalidate all user sessions
+    
+    Security considerations:
+    - Token must be single-use
+    - Token should expire (e.g., 1 hour)
+    - Enforce password strength requirements
+    - Log password change events
+    - Consider invalidating all existing sessions
+    
     Args:
         token: Password reset token
         new_password: New password
@@ -609,18 +670,23 @@ async def reset_password(
     Raises:
         HTTPException: 400 Bad Request if token is invalid or expired
         HTTPException: 404 Not Found if user not found
-        
-    Note:
-        This is a placeholder for password reset functionality.
-        Implementation depends on email service integration.
+        HTTPException: 422 Unprocessable Entity if password is weak
     """
-    # TODO: Implement password reset logic
-    # This would involve:
-    # 1. Verifying the reset token
-    # 2. Finding the user associated with the token
-    # 3. Updating the user's password
+    # Implementation steps:
+    # 1. Decode and verify reset token
+    # 2. Check token expiration
+    # 3. Extract user_id from token
+    # 4. Find user in database
+    # 5. Validate new password strength
+    # 6. Hash new password
+    # 7. Update user.hashed_password
+    # 8. Invalidate the reset token
+    # 9. Save to database
     
-    return {"message": "Password reset successfully"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password reset requires email service configuration",
+    )
 
 
 # ============================================================================

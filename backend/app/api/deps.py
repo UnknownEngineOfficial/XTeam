@@ -5,6 +5,8 @@ This module defines FastAPI dependency functions for authentication, database ac
 and other common request requirements.
 """
 
+import time
+import threading
 from typing import Optional, Generator, AsyncGenerator
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -461,13 +463,50 @@ def get_filters(
 # Rate Limiting Dependencies
 # ============================================================================
 
+class RateLimitStore:
+    """
+    Thread-safe rate limit store using singleton pattern.
+    
+    For production, replace with Redis implementation.
+    """
+    _instance = None
+    _lock = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._store = {}
+            # Use threading.Lock for thread safety
+            cls._lock = threading.Lock()
+        return cls._instance
+    
+    def get_requests(self, user_id: str) -> list:
+        """Get request timestamps for a user."""
+        with self._lock:
+            return self._store.get(user_id, []).copy()
+    
+    def set_requests(self, user_id: str, timestamps: list) -> None:
+        """Set request timestamps for a user."""
+        with self._lock:
+            self._store[user_id] = timestamps
+    
+    def add_request(self, user_id: str, timestamp: float) -> None:
+        """Add a request timestamp for a user."""
+        with self._lock:
+            if user_id not in self._store:
+                self._store[user_id] = []
+            self._store[user_id].append(timestamp)
+
+
 async def check_rate_limit(
     current_user: User = Depends(get_current_user),
 ) -> User:
     """
     Check rate limit for current user.
     
-    This dependency can be used to enforce rate limiting on specific endpoints.
+    This dependency enforces rate limiting on specific endpoints using
+    a thread-safe in-memory store. For production with multiple workers,
+    use Redis-based rate limiting.
     
     Args:
         current_user: Current authenticated user
@@ -485,8 +524,36 @@ async def check_rate_limit(
         ):
             # This endpoint is rate limited
     """
-    # TODO: Implement actual rate limiting logic
-    # This could use Redis to track request counts per user
+    # Get rate limit store (singleton)
+    rate_store = RateLimitStore()
+    
+    user_id = str(current_user.id)
+    current_time = time.time()
+    
+    # Rate limit: 60 requests per minute per user
+    window_seconds = 60
+    max_requests = 60
+    
+    # Get current requests and clean up old entries
+    requests = rate_store.get_requests(user_id)
+    requests = [ts for ts in requests if current_time - ts < window_seconds]
+    
+    # Check rate limit
+    if len(requests) >= max_requests:
+        # Calculate retry time
+        oldest_request = min(requests)
+        retry_after = int(window_seconds - (current_time - oldest_request)) + 1
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    
+    # Add current request and update store
+    requests.append(current_time)
+    rate_store.set_requests(user_id, requests)
+    
     return current_user
 
 
