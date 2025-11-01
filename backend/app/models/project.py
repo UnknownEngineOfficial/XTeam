@@ -102,7 +102,7 @@ class Project(Base):
 
     workspace_path = Column(
         String(500),
-        nullable=False,
+        nullable=True,
         unique=True,
         doc="Path to project workspace on filesystem"
     )

@@ -44,7 +44,6 @@ security = HTTPBearer(auto_error=False)
 # ============================================================================
 
 router = APIRouter(
-    prefix="/auth",
     tags=["Authentication"],
     responses={
         401: {"model": ErrorResponse, "description": "Unauthorized"},
@@ -134,7 +133,7 @@ async def register(
     tokens = create_token_pair(str(new_user.id))
     
     # Convert to response
-    user_response = UserResponse.from_attributes(new_user)
+    user_response = UserResponse.model_validate(new_user)
     token_response = Token(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
@@ -217,7 +216,7 @@ async def login(
     tokens = create_token_pair(str(user.id))
     
     # Convert to response
-    user_response = UserResponse.from_attributes(user)
+    user_response = UserResponse.model_validate(user)
     token_response = Token(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
@@ -349,7 +348,7 @@ async def get_profile(
         GET /api/v1/auth/me
         Authorization: Bearer <access_token>
     """
-    return UserDetailResponse.from_attributes(current_user)
+    return UserDetailResponse.model_validate(current_user)
 
 
 @router.put(
@@ -405,7 +404,7 @@ async def update_profile(
     await db.commit()
     await db.refresh(current_user)
     
-    return UserResponse.from_attributes(current_user)
+    return UserResponse.model_validate(current_user)
 
 
 # ============================================================================

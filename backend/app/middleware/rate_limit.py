@@ -14,6 +14,9 @@ from starlette.responses import Response, JSONResponse
 
 from app.core.config import settings
 
+# Health check endpoints that should not be rate limited
+HEALTH_ENDPOINTS = ["/health", "/healthz", "/readyz"]
+
 
 class TokenBucket:
     """Token bucket implementation for rate limiting."""
@@ -88,12 +91,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with rate limiting."""
+        # Skip rate limiting for health check endpoints but add informational headers
+        if request.url.path in HEALTH_ENDPOINTS:
+            response = await call_next(request)
+            # Add informational headers (not rate limited)
+            response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
+            response.headers["X-RateLimit-Remaining"] = str(self.requests_per_minute)
+            return response
+        
         # Skip rate limiting if disabled
         if not settings.rate_limit_enabled:
-            return await call_next(request)
-        
-        # Skip rate limiting for health check endpoints
-        if request.url.path in ["/health", "/healthz", "/readyz"]:
             return await call_next(request)
         
         # Get client IP

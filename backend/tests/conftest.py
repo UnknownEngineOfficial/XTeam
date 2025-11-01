@@ -11,6 +11,16 @@ from httpx import AsyncClient
 
 
 # ============================================================================
+# Test Constants
+# ============================================================================
+
+# Standard test passwords that meet validation requirements
+# Must contain: uppercase, lowercase, digit, min 8 chars
+TEST_USER_PASSWORD = "TestPassword123"
+TEST_ADMIN_PASSWORD = "AdminPassword123"
+
+
+# ============================================================================
 # Pytest Configuration
 # ============================================================================
 
@@ -111,7 +121,7 @@ async def test_user(test_db: AsyncSession) -> User:
         email="test@example.com",
         username="testuser",
         full_name="Test User",
-        hashed_password=hash_password("testpassword"),
+        hashed_password=hash_password(TEST_USER_PASSWORD),
         is_active=True,
         is_superuser=False,
     )
@@ -130,7 +140,7 @@ async def test_superuser(test_db: AsyncSession) -> User:
         email="admin@example.com",
         username="admin",
         full_name="Admin User",
-        hashed_password=hash_password("adminpassword"),
+        hashed_password=hash_password(TEST_ADMIN_PASSWORD),
         is_active=True,
         is_superuser=True,
     )

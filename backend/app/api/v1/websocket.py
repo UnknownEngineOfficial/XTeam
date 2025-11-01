@@ -44,7 +44,7 @@ from app.metagpt_integration.streaming import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ws", tags=["websocket"])
+router = APIRouter(tags=["websocket"])
 
 
 # ============================================================================
