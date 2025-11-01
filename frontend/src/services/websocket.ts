@@ -38,7 +38,7 @@ class WebSocketService {
   connect(token?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const wsUrl = process.env.REACT_APP_WS_URL || 'http://localhost:8000';
+        const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8000';
 
         // Create socket with authentication
         this.socket = io(wsUrl, {
