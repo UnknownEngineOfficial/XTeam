@@ -1,16 +1,16 @@
 """
-Rate Limiting Middleware
+Token Bucket implementation for rate limiting.
 
-Implements token bucket rate limiting per client IP address.
+Uses asyncio.Lock for thread-safe operations in async context.
 """
 
+import asyncio
 import time
 from collections import defaultdict
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
-from threading import Lock
 
 from app.core.config import settings
 
@@ -30,9 +30,9 @@ class TokenBucket:
         self.refill_rate = refill_rate
         self.tokens = capacity
         self.last_refill = time.time()
-        self.lock = Lock()
+        self.lock = asyncio.Lock()
     
-    def consume(self, tokens: int = 1) -> bool:
+    async def consume(self, tokens: int = 1) -> bool:
         """
         Try to consume tokens from the bucket.
         
@@ -42,7 +42,7 @@ class TokenBucket:
         Returns:
             bool: True if tokens were consumed, False if not enough tokens
         """
-        with self.lock:
+        async with self.lock:
             now = time.time()
             # Refill tokens based on time elapsed
             time_passed = now - self.last_refill
@@ -107,7 +107,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         # Check rate limit
         bucket = self.buckets[client_ip]
-        if not bucket.consume():
+        if not await bucket.consume():
             return JSONResponse(
                 status_code=429,
                 content={

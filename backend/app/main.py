@@ -232,9 +232,10 @@ async def health_liveness() -> dict:
     Returns basic application status without external dependencies check.
     This endpoint should always return 200 OK if the application is running.
     """
+    from datetime import datetime
     return {
         "status": "healthy",
-        "timestamp": logging.Formatter().formatTime(logging.LogRecord("", 0, "", 0, "", (), None))
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 

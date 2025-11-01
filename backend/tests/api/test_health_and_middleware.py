@@ -75,7 +75,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_headers(self, client: AsyncClient):
         """Test that rate limit headers are present."""
-        response = await client.get("/api/v1/auth/health")
+        response = await client.get("/health")
         
         assert "x-ratelimit-limit" in response.headers
         assert "x-ratelimit-remaining" in response.headers

@@ -30,7 +30,7 @@ class TokenBlacklistService:
     async def connect(self) -> None:
         """Connect to Redis."""
         try:
-            self.redis_client = await aioredis.from_url(
+            self.redis_client = aioredis.from_url(
                 settings.redis_cache_url,
                 decode_responses=True,
                 max_connections=10,
