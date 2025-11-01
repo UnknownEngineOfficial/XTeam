@@ -116,8 +116,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Handle theme changes
   useEffect(() => {
     if (monacoRef.current) {
-      const { editor } = require('monaco-editor');
-      editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+      import('monaco-editor').then(({ editor }) => {
+        editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+      });
     }
   }, [theme]);
 
