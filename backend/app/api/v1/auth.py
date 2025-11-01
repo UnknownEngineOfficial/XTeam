@@ -348,7 +348,7 @@ async def get_profile(
         GET /api/v1/auth/me
         Authorization: Bearer <access_token>
     """
-    return UserDetailResponse.from_attributes(current_user)
+    return UserDetailResponse.model_validate(current_user)
 
 
 @router.put(
