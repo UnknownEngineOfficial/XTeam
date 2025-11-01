@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: xteam-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-xteam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xteam_password}
+      POSTGRES_DB: ${POSTGRES_DB:-xteam}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xteam}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xteam-network
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: xteam-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xteam-network
+
+  # Backend API
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: xteam-backend
+    restart: unless-stopped
+    environment:
+      # Application
+      APP_NAME: ${APP_NAME:-XTeam}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Server
+      HOST: 0.0.0.0
+      PORT: 8000
+      RELOAD: false
+      
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xteam}:${POSTGRES_PASSWORD:-xteam_password}@db:5432/${POSTGRES_DB:-xteam}
+      DATABASE_ECHO: ${DATABASE_ECHO:-false}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+      REDIS_QUEUE_URL: redis://redis:6379/2
+      
+      # Celery
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      
+      # JWT
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      
+      # LLM APIs
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      
+      # Storage
+      UPLOAD_DIR: /app/uploads
+      METAGPT_WORKSPACE: /app/workspaces
+      
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_workspaces:/app/workspaces
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - xteam-network
+
+  # Celery Worker
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: xteam-worker
+    restart: unless-stopped
+    command: celery -A app.tasks worker --loglevel=info
+    environment:
+      # Same environment as backend
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xteam}:${POSTGRES_PASSWORD:-xteam_password}@db:5432/${POSTGRES_DB:-xteam}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_workspaces:/app/workspaces
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - xteam-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: xteam-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - xteam-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_workspaces:
+    driver: local
+
+networks:
+  xteam-network:
+    driver: bridge

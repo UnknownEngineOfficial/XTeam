@@ -17,7 +17,25 @@ frontend/dist/
 
 # Pytest
 .pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # Misc
 *.log
 .DS_Store
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# Alembic
+alembic/versions/*.pyc
