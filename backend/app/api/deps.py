@@ -41,7 +41,7 @@ async def get_current_user(
     Get current authenticated user from JWT token in Authorization header.
     
     This dependency extracts the JWT token from the Authorization header,
-    verifies it, and returns the associated User object from the database.
+    verifies it, checks if it's revoked, and returns the associated User object.
     
     Args:
         credentials: HTTP Bearer credentials from Authorization header
@@ -51,7 +51,7 @@ async def get_current_user(
         User: The authenticated user
         
     Raises:
-        HTTPException: 401 Unauthorized if token is missing, invalid, or expired
+        HTTPException: 401 Unauthorized if token is missing, invalid, expired, or revoked
         HTTPException: 404 Not Found if user does not exist
         
     Example:
@@ -92,6 +92,23 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if token is revoked
+    from app.core.token_blacklist import token_blacklist
+    if await token_blacklist.is_token_revoked(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if all user tokens are revoked
+    if await token_blacklist.is_user_tokens_revoked(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="All user tokens have been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

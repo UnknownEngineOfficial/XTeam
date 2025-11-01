@@ -83,7 +83,7 @@ jobs:
         ENVIRONMENT: test
       run: |
         cd backend
-        pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+        pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=60
       continue-on-error: true
     
     - name: Upload coverage reports
@@ -91,6 +91,24 @@ jobs:
       with:
         files: ./backend/coverage.xml
         flags: backend
+      continue-on-error: true
+    
+    - name: Security scan with pip-audit
+      run: |
+        cd backend
+        pip install pip-audit
+        pip-audit --desc --skip-editable
+      continue-on-error: true
+    
+    - name: Check Alembic migrations
+      env:
+        DATABASE_URL: postgresql+asyncpg://xteam:xteam_password@localhost:5432/xteam_test
+      run: |
+        cd backend
+        # Check if migrations are up to date
+        alembic check
+        # Try running migrations
+        alembic upgrade head
       continue-on-error: true
 
   # Frontend Linting and Testing
@@ -143,6 +161,7 @@ jobs:
     needs: [backend-lint-test, frontend-lint-test]
     permissions:
       contents: read
+      security-events: write
     
     steps:
     - uses: actions/checkout@v4
@@ -159,6 +178,22 @@ jobs:
         tags: xteam-backend:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        load: true
+    
+    - name: Scan backend image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: xteam-backend:test
+        format: 'sarif'
+        output: 'trivy-backend-results.sarif'
+        severity: 'CRITICAL,HIGH'
+      continue-on-error: true
+    
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-backend-results.sarif'
+      continue-on-error: true
     
     - name: Build frontend Docker image
       uses: docker/build-push-action@v5
@@ -169,3 +204,19 @@ jobs:
         tags: xteam-frontend:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        load: true
+    
+    - name: Scan frontend image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: xteam-frontend:test
+        format: 'sarif'
+        output: 'trivy-frontend-results.sarif'
+        severity: 'CRITICAL,HIGH'
+      continue-on-error: true
+    
+    - name: Upload Trivy frontend results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-frontend-results.sarif'
+      continue-on-error: true

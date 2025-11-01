@@ -6,9 +6,11 @@ registration, login, token refresh, and profile management.
 """
 
 from datetime import timedelta
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -33,6 +35,9 @@ from app.schemas.user import (
     ErrorResponse,
 )
 from app.api.deps import get_current_user, get_current_active_user
+
+# Security scheme
+security = HTTPBearer(auto_error=False)
 
 # ============================================================================
 # Router Configuration
@@ -476,24 +481,21 @@ async def change_password(
     "/logout",
     status_code=status.HTTP_200_OK,
     summary="Logout user",
-    description="Logout the currently authenticated user",
+    description="Logout the currently authenticated user and revoke current token",
 )
 async def logout(
     current_user: User = Depends(get_current_user),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
-    Logout current user.
+    Logout current user and revoke their token.
     
-    This endpoint performs logout operations. Since we're using stateless JWT tokens,
-    the actual logout is handled on the client side by discarding the tokens.
-    
-    For enhanced security, implement token blacklisting:
-    1. Store invalidated tokens in Redis with expiration
-    2. Check blacklist in the get_current_user dependency
-    3. Clean up expired tokens automatically
+    This endpoint revokes the current access token by adding it to the blacklist.
+    The token will remain invalid until its natural expiration time.
     
     Args:
         current_user: Current authenticated user
+        credentials: HTTP Bearer credentials to revoke
         
     Returns:
         dict: Success message
@@ -502,8 +504,23 @@ async def logout(
         POST /api/v1/auth/logout
         Authorization: Bearer <access_token>
     """
-    # Client-side logout: Frontend should discard access and refresh tokens
-    # For server-side token blacklisting, add Redis integration here
+    # Revoke current token
+    if credentials:
+        token = credentials.credentials
+        from app.core.token_blacklist import token_blacklist
+        
+        # Calculate remaining token lifetime
+        from app.core.security import verify_token
+        from datetime import datetime, timezone
+        
+        payload = verify_token(token)
+        if payload and payload.get("exp"):
+            exp_timestamp = payload["exp"]
+            now_timestamp = datetime.now(timezone.utc).timestamp()
+            remaining_seconds = int(exp_timestamp - now_timestamp)
+            
+            if remaining_seconds > 0:
+                await token_blacklist.revoke_token(token, remaining_seconds)
     
     return {"message": "Logged out successfully"}
 

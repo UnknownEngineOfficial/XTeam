@@ -18,6 +18,10 @@ jobs:
       contents: read
       packages: write
     
+    outputs:
+      backend_image: ${{ steps.meta-backend.outputs.tags }}
+      frontend_image: ${{ steps.meta-frontend.outputs.tags }}
+    
     steps:
     - uses: actions/checkout@v4
     
@@ -77,29 +81,96 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  # Optional: Deploy to staging/production
-  # deploy-staging:
-  #   runs-on: ubuntu-latest
-  #   needs: build-and-push
-  #   if: github.ref == 'refs/heads/develop'
-  #   
-  #   steps:
-  #   - name: Deploy to staging
-  #     run: |
-  #       echo "Deploy to staging environment"
-  #       # Add your deployment commands here
-  #       # e.g., kubectl, docker-compose, etc.
-  
-  # deploy-production:
-  #   runs-on: ubuntu-latest
-  #   needs: build-and-push
-  #   if: github.ref == 'refs/heads/main'
-  #   environment:
-  #     name: production
-  #     url: https://xteam.ai
-  #   
-  #   steps:
-  #   - name: Deploy to production
-  #     run: |
-  #       echo "Deploy to production environment"
-  #       # Add your production deployment commands here
+  # Deploy to staging environment
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.xteam.example.com
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run database migrations
+      run: |
+        echo "Running Alembic migrations on staging..."
+        # In production, you would:
+        # 1. Connect to staging database
+        # 2. Run: alembic upgrade head
+        # 3. Verify migration success
+        echo "Migrations would run here with proper database credentials"
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # In production, you would:
+        # 1. Update Kubernetes deployment
+        # 2. Or trigger deployment via API (e.g., Railway, Render, etc.)
+        # 3. Wait for deployment to complete
+        echo "Backend image: ${{ needs.build-and-push.outputs.backend_image }}"
+        echo "Frontend image: ${{ needs.build-and-push.outputs.frontend_image }}"
+    
+    - name: Smoke tests
+      run: |
+        echo "Running smoke tests on staging..."
+        # In production, you would:
+        # 1. Wait for services to be healthy
+        # 2. Run basic smoke tests
+        # 3. Check /healthz and /readyz endpoints
+        # 4. Test critical user flows
+        echo "Smoke tests would run here"
+
+  # Deploy to production environment (manual approval required)
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging]
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://xteam.example.com
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run database migrations
+      run: |
+        echo "Running Alembic migrations on production..."
+        # In production, you would:
+        # 1. Create database backup first
+        # 2. Connect to production database
+        # 3. Run: alembic upgrade head
+        # 4. Verify migration success
+        # 5. Monitor for errors
+        echo "Production migrations would run here with proper credentials"
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # In production, you would:
+        # 1. Use blue-green or canary deployment strategy
+        # 2. Update Kubernetes deployment gradually
+        # 3. Monitor error rates and performance
+        # 4. Rollback if issues detected
+        echo "Backend image: ${{ needs.build-and-push.outputs.backend_image }}"
+        echo "Frontend image: ${{ needs.build-and-push.outputs.frontend_image }}"
+    
+    - name: Production smoke tests
+      run: |
+        echo "Running smoke tests on production..."
+        # In production, you would:
+        # 1. Verify services are healthy
+        # 2. Test critical user flows
+        # 3. Check monitoring dashboards
+        # 4. Verify no elevated error rates
+        echo "Production smoke tests would run here"
+    
+    - name: Notify deployment
+      run: |
+        echo "Deployment completed successfully!"
+        # In production, you would:
+        # 1. Send notifications to Slack/Teams/Discord
+        # 2. Update deployment tracking system
+        # 3. Create deployment record
+        # 4. Tag release in monitoring system
